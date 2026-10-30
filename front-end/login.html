@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in | Learning Center</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/login.css">
+    <script type="module" src="assets/js/login.js"></script>
+</head>
+<body>
+    <main class="page-shell auth-shell">
+        <header class="brand"><a class="brand-mark" href="index.html" aria-label="Learning Center home">LC</a><span>Learning Center</span></header>
+        <a class="back-link" href="index.html#portals">&#8592; All account types</a>
+        <section class="auth-layout" aria-labelledby="auth-title">
+            <div class="auth-intro">
+                <p class="eyebrow" id="auth-eyebrow">PORTAL</p>
+                <h1 id="auth-title">Welcome.</h1>
+                <p id="auth-text"></p>
+                <nav class="role-switch" aria-label="Choose account type" id="role-switch"></nav>
+            </div>
+            <div class="auth-panel">
+                <div class="tab-list" role="tablist" aria-label="Account actions" id="auth-tabs"></div>
+                <p class="form-message" id="form-message" role="status" aria-live="polite" hidden></p>
+                <div id="auth-panels"></div>
+                <div class="demo-box">
+                    <p>No backend yet? Explore every screen with sample data.</p>
+                    <button class="secondary-button demo-button" type="button" id="demo-login">Try the demo account</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
