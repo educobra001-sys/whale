@@ -27,7 +27,9 @@ if (useCloudinary) {
 export const storeUpload = async (file: Express.Multer.File) => {
     if (!useCloudinary) return `/files/${file.filename}`
     try {
-        const stored = await cloudinary.uploader.upload(file.path, { folder: env.cloudinaryFolder, resource_type: "auto", use_filename: false })
+        // Cloudinary blocks PDFs delivered as images by default, so they go up as plain files.
+        const resource_type = file.mimetype === "application/pdf" ? "raw" : "auto"
+        const stored = await cloudinary.uploader.upload(file.path, { folder: env.cloudinaryFolder, resource_type, use_filename: false })
         return stored.secure_url
     } finally {
         await fs.promises.rm(file.path, { force: true })
