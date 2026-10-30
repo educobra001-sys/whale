@@ -37,7 +37,7 @@ const deliver = async (item: any) => {
     if (item.channel === "telegram") return sendByTelegram(item, item.body)
     if (item.channel === "whatsapp_api") return sendByApi(item.to, item.body)
     if (item.channel === "whatsapp_web") {
-        if (!whatsappConnected() && env.isDev) throw new Simulated()
+        if (!whatsappConnected() && env.testMode) throw new Simulated()
         return sendWhatsappWeb(item.to, item.body)
     }
     throw new Error(`Unknown channel ${item.channel}`)

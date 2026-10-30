@@ -46,8 +46,8 @@ class AuthService {
             throw new BadRequestError("We couldn't send the email. Please try again.")
         }
         if (!emailConfigured()) console.log(`[otp ${scope}] ${code}`)
-        // Offline testing only: without SMTP there is no inbox, so the code comes back to the screen.
-        return env.isDev && !emailConfigured() ? code : undefined
+        // Testing only: without SMTP there is no inbox, so the code comes back to the screen.
+        return env.testMode && !emailConfigured() ? code : undefined
     }
 
     private async checkOtp(scope: string, otp: string) {
@@ -185,7 +185,7 @@ class AuthService {
         const email = this.recoveryEmail(role, account)
         if (!account) return { sent: true }
         if (!email) {
-            if (env.isDev) return { sent: true, devCode: await this.issueResetWithoutEmail(role, account) }
+            if (env.testMode) return { sent: true, devCode: await this.issueResetWithoutEmail(role, account) }
             return { sent: true }
         }
         const devCode = await this.issueOtp(`reset:${role}:${account._id}`, email, "Use this code to reset your password.")

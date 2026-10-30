@@ -3,7 +3,7 @@ import { after, before, test } from "node:test"
 import { monthKey } from "../common/service/helpers"
 import { runAsPlatform } from "../common/service/tenantContext"
 import { repos } from "../db/repository"
-import { call, login, makeStudent, makeTeacher, ownerToken, startServer, startSession, stopServer } from "./helpers"
+import { base, call, login, makeStudent, makeTeacher, ownerToken, startServer, startSession, stopServer } from "./helpers"
 
 let owner = ""
 before(async () => {
@@ -229,6 +229,19 @@ test("parents see their own children only", async () => {
     assert.equal((await call("GET", `/parent/children/${child.id}/report`, token)).status, 200)
     assert.equal((await call("GET", `/parent/children/${stranger.id}/report`, token)).status, 404)
     assert.equal((await call("POST", "/parent/children", token, { code: stranger.userID })).status, 403)
+})
+
+test("uploads accept images and refuse anything else", async () => {
+    const teacher = await makeTeacher(owner)
+    const send = (name: string, type: string) => {
+        const form = new FormData()
+        form.append("file", new Blob([Buffer.from("iVBORw0KGgo=", "base64")], { type }), name)
+        return fetch(`${base}/uploads`, { method: "POST", headers: { Authorization: `Bearer ${teacher.token}` }, body: form })
+    }
+    const image = await send("photo.png", "image/png")
+    assert.equal(image.status, 201)
+    assert.match(((await image.json()) as any).data.url, /^\/files\/.+\.png$/)
+    assert.equal((await send("evil.html", "text/html")).status, 400)
 })
 
 test("attack traffic is rejected cleanly", async () => {

@@ -41,6 +41,12 @@ export const env = {
     maxUploadMb: number("MAX_UPLOAD_MB", 25),
     // Tests send far more traffic from one address than any real client.
     rateLimitOff: nodeEnv !== "production" && read("RATE_LIMIT_OFF") === "true",
+    // A test deployment has no email yet, so codes stay on screen and unconfigured channels are simulated.
+    testMode: nodeEnv !== "production" || read("TEST_MODE") === "true",
+    cloudinaryCloud: read("CLOUDINARY_CLOUD_NAME"),
+    cloudinaryKey: read("CLOUDINARY_API_KEY"),
+    cloudinarySecret: read("CLOUDINARY_API_SECRET"),
+    cloudinaryFolder: read("CLOUDINARY_FOLDER", "educobra"),
     telegramToken: read("TELEGRAM_BOT_TOKEN"),
     telegramBotUsername: read("TELEGRAM_BOT_USERNAME"),
 }

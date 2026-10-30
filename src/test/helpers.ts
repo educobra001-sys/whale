@@ -2,6 +2,7 @@ process.env.DB_NAME = "educobra_test"
 process.env.RUN_WORKER = "false"
 process.env.BCRYPT_ROUNDS = "4"
 process.env.RATE_LIMIT_OFF = "true"
+process.env.CLOUDINARY_CLOUD_NAME = ""
 process.env.REDIS_URL = "redis://127.0.0.1:6479/1"
 
 import { AddressInfo } from "node:net"

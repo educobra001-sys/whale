@@ -244,7 +244,7 @@ function bind() {
       if (role === "teacher") {
         $("#verify-form [name=identifier]").value = body.email;
         showPanel("verify-panel");
-        showMessage(result?.devCode ? `Account created. Offline test code: ${result.devCode}` : `Account created. Enter the verification code sent to ${body.email}.`);
+        showMessage(result?.devCode ? `Account created. Test code: ${result.devCode}` : `Account created. Enter the verification code sent to ${body.email}.`);
         return;
       }
       if (role === "student" && result?.userID) {
@@ -280,7 +280,7 @@ function bind() {
     }
     try {
       const result = await api.auth.resendOtp({ identifier });
-      showMessage(result?.devCode ? `Offline test code: ${result.devCode}` : "A new code is on its way.");
+      showMessage(result?.devCode ? `Test code: ${result.devCode}` : "A new code is on its way.");
     } catch (error) {
       showMessage(error.message, "error");
     }
@@ -307,7 +307,7 @@ function bind() {
       const result = await api.auth.forgotPassword(role, { identifier: resetIdentifier });
       $("#forgot-form").hidden = true;
       $("#reset-form").hidden = false;
-      showMessage(result?.devCode ? `Offline test code: ${result.devCode}` : "If the account exists, a reset code has been sent.");
+      showMessage(result?.devCode ? `Test code: ${result.devCode}` : "If the account exists, a reset code has been sent.");
     });
   });
   $("#reset-form").addEventListener("submit", (event) => {
