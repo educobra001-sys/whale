@@ -52,3 +52,7 @@ docs/                 scaling guide and the original front-end contract
 ## Tests
 
 `npm test` runs against the local database in `educobra_test`, which it wipes, and Redis database 1. It covers isolation between teachers, money under concurrent requests, approvals, plans, billing, affiliates, ads, messaging and attack traffic.
+
+## Share a temporary link with friends
+
+Run `start-public.bat`. It starts the server with error details hidden and prints a temporary Cloudflare link. Run `stop-public.bat` to close it. The link works only while this computer is on, and changes on every start.

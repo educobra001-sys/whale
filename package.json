@@ -13,6 +13,8 @@
     "start:dev": "cross-env NODE_ENV=dev concurrently \"tsc -watch --preserveWatchOutput\" \"node --watch ./dist/main.js\"",
     "db:start": "node scripts/dev-services.js start && node scripts/init-replica.js",
     "db:stop": "node scripts/dev-services.js stop",
+    "public": "node scripts/public.js start",
+    "public:stop": "node scripts/public.js stop",
     "seed": "node ./dist/scripts/seed.js",
     "owner:create": "node ./dist/scripts/createOwner.js",
     "test": "tsc && node --test --test-concurrency=1 \"dist/test/**/*.test.js\""
