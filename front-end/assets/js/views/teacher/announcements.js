@@ -57,19 +57,26 @@ export default async function announcements(ctx) {
     return [grades.join(", "), centerNames.join(", ")].filter(Boolean).join(" · ") || "Everyone";
   }
 
+  function platformChip(item) {
+    if (item.platformStatus === "approved") return badge("Shown outside your course", "success");
+    if (item.platformStatus === "pending") return badge("Waiting for EduCobra", "warn");
+    return html`${item.platformStatus === "rejected" ? badge("Refused", "danger") : ""}<button class="btn btn-sm btn-ghost" data-action="request" data-id="${item._id}">Ask to show outside</button>`;
+  }
+
   function render() {
     mount(
       root,
       html`${pageHeader({
         eyebrow: "Engagement",
         title: "Announcements",
-        text: "News, reminders, offers and videos for your students and their parents. Target specific grades or centers.",
+        text: "These appear only inside your own course. To show one to students outside it, ask EduCobra to accept it.",
         actions: html`<button class="btn btn-primary" data-action="create">${icon("plus")} New announcement</button>`,
       })}
       ${list.length
         ? html`<div class="tile-grid">${list.map((item) =>
             announcementCard(item, {
               actions: html`<span class="row"><span class="badge badge-muted">${audienceText(item)}</span>
+                ${platformChip(item)}
                 <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${item._id}">Edit</button>
                 <button class="btn btn-sm btn-ghost" data-action="delete" data-id="${item._id}">Delete</button></span>`,
             }),
@@ -97,6 +104,11 @@ export default async function announcements(ctx) {
         render();
         toast(item ? "Announcement updated." : "Announcement published.");
       }
+    }
+    if (action === "request") {
+      if (!(await withBusy(button, () => api.teacher.requestPlatformAd(item._id), "Sent to EduCobra for review."))) return;
+      await load();
+      render();
     }
     if (action === "delete") {
       if (!(await confirmDialog(`Delete “${item.title}”?`, { danger: true, confirmLabel: "Delete" }))) return;

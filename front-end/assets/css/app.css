@@ -1,4 +1,4 @@
-/* Learning Center — application stylesheet.
+/* EduCobra — application stylesheet.
    Same warm amber / cream identity as style.css, extended into a full design system with dark mode. */
 
 :root {
@@ -830,3 +830,10 @@ a.tile:hover, button.tile:hover { border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* EduCobra additions */
+.input-sm { width: 100%; min-width: 120px; padding: 7px 10px; border: 1px solid var(--line, #d9d4c8); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 13px; }
+.card-foot { padding: 14px 18px; border-top: 1px solid var(--line, #e7e2d6); }
+.plan-total { padding: 14px 16px; border-radius: 12px; background: var(--accent-wash); font-size: 16px; }
+.plan-total strong { font-size: 22px; color: var(--accent-text); }
+.table textarea { width: 100%; min-width: 240px; padding: 8px 10px; border: 1px solid var(--line, #d9d4c8); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 13px; }

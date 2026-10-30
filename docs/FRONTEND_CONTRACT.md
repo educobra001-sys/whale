@@ -1,4 +1,4 @@
-# Learning Center — Front-end report for the backend
+# EduCobra — Front-end report for the backend
 
 This document explains what the new front-end does, how it talks to the backend, and **exactly what the backend needs to provide**. The front-end is finished and works today in two modes:
 

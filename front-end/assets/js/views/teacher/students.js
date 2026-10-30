@@ -31,7 +31,7 @@ export async function showCredentials({ userID, password, student }) {
         ${qr ? html`<img class="qr-img" src="${qr}" alt="QR code for ${userID}">` : ""}
       </div>
       <p class="dialog-text mt">Give these details to the student. They sign in with the code and password, and show the QR code at the door.</p>`,
-    actions: html`<button class="btn btn-secondary" type="button" onclick="window.print()">Print</button><button class="btn btn-primary" type="button" data-close>Done</button>`,
+    actions: html`<button class="btn btn-secondary" type="button" data-print>Print</button><button class="btn btn-primary" type="button" data-close>Done</button>`,
   });
 }
 
@@ -189,8 +189,24 @@ export default async function students(ctx) {
         intro: "We'll create the student's account and generate a student code and a temporary password.",
         fields: [...studentFields(centers), { name: "balance", label: "Opening balance", type: "number", value: 0, hint: "Money the student already paid you" }],
         submitLabel: "Create student",
-        onSubmit: (values) => api.teacher.createStudent(values),
+        onSubmit: async (values) => {
+          try {
+            return await api.teacher.createStudent(values);
+          } catch (error) {
+            if (error.details?.code !== "STUDENT_EXISTS") throw error;
+            // The student already has an EduCobra account: enroll that account instead of creating another.
+            const yes = await confirmDialog(`${error.details.name} is already registered on EduCobra. Their ID is ${error.details.userID}. Add this student to your class?`, { title: "Already registered", confirmLabel: "Add to my class" });
+            if (!yes) throw new Error(`Already registered. Student ID: ${error.details.userID}`);
+            await api.teacher.linkStudent({ identifier: error.details.userID, center: values.center, pricePerSession: values.pricePerSession });
+            return { linked: true };
+          }
+        },
       });
+      if (result?.linked) {
+        await load();
+        render();
+        toast("Student added to your class.");
+      }
       if (result?.userID) {
         await load();
         render();
@@ -200,7 +216,7 @@ export default async function students(ctx) {
     if (action === "link") {
       const result = await formDialog({
         title: "Link an existing student",
-        intro: "If the student already has a Learning Center account (for example with another teacher), enter their student code or phone number.",
+        intro: "If the student already has a EduCobra account (for example with another teacher), enter their student code or phone number.",
         fields: [
           { name: "identifier", label: "Student code or phone", required: true, placeholder: "STU-000123", full: true },
           { name: "center", label: "Home center", type: "select", options: centers, emptyLabel: "No center" },

@@ -1,7 +1,7 @@
 // Unified sign-in / registration page for every account type: login.html?role=teacher|student|center|assistant|parent
 import { api } from "./core/api.js";
 import { GRADES, LANGUAGES, ROLES, SUBJECTS } from "./core/config.js";
-import { clearSession, getAccessToken, getRole, isDemo, saveSession } from "./core/session.js";
+import { getAccessToken, getRole, saveSession } from "./core/session.js";
 import { $, $$, html, mount, qrDataUrl } from "./core/ui.js";
 
 const params = new URLSearchParams(window.location.search);
@@ -9,8 +9,6 @@ const role = ROLES[params.get("role")] ? params.get("role") : "teacher";
 
 if (getAccessToken() && getRole() === role && !params.has("switch")) {
   window.location.replace("app.html");
-} else if (isDemo()) {
-  clearSession(); // never send real sign-in/registration requests to the demo backend
 }
 
 const option = (value, label) => html`<option value="${value}">${label}</option>`;
@@ -91,6 +89,13 @@ const CONFIG = {
         <button class="submit-button" type="submit">Create account <span aria-hidden="true">&#8594;</span></button>
       </form>`,
   },
+  owner: {
+    eyebrow: "EDUCOBRA",
+    title: "Run the<br>platform.",
+    text: "Sign in to the EduCobra control panel.",
+    identifier: "Email or username",
+    panels: ["login"],
+  },
   assistant: {
     eyebrow: "ASSISTANT PORTAL",
     title: "Help your teacher<br>run the class.",
@@ -135,13 +140,13 @@ function showPanel(panelId) {
 }
 
 function render() {
-  document.title = `${ROLES[role].label} access | Learning Center`;
+  document.title = `${ROLES[role].label} access | EduCobra`;
   $("#auth-eyebrow").textContent = config.eyebrow;
   mount($("#auth-title"), html([config.title]));
   $("#auth-text").textContent = config.text;
   mount(
     $("#role-switch"),
-    html`${Object.entries(ROLES).map(
+    html`${Object.entries(ROLES).filter(([, info]) => !info.hidden).map(
       ([key, info]) => html`<a href="login.html?role=${key}" ${key === role ? html`aria-current="page"` : ""}>${info.label}</a>`,
     )}`,
   );
@@ -239,7 +244,7 @@ function bind() {
       if (role === "teacher") {
         $("#verify-form [name=identifier]").value = body.email;
         showPanel("verify-panel");
-        showMessage(`Account created. Enter the verification code sent to ${body.email}.`);
+        showMessage(result?.devCode ? `Account created. Offline test code: ${result.devCode}` : `Account created. Enter the verification code sent to ${body.email}.`);
         return;
       }
       if (role === "student" && result?.userID) {
@@ -253,7 +258,7 @@ function bind() {
       }
       $("#login-form [name=identifier]").value = body.phone || body.name || "";
       showPanel("login-panel");
-      showMessage("Account created. You can now sign in.");
+      showMessage(role === "center" ? "Account created. The EduCobra team will review your center before you can sign in." : "Account created. You can now sign in.");
     });
   });
 
@@ -263,7 +268,7 @@ function bind() {
       await api.auth.verify({ identifier: String(fields.get("identifier")).trim(), otp: String(fields.get("otp")).trim() });
       $("#login-form [name=identifier]").value = String(fields.get("identifier")).trim();
       showPanel("login-panel");
-      showMessage("Email verified. You can now sign in.");
+      showMessage("Email verified. The EduCobra team will review your account and you'll be able to sign in once it's approved.");
     });
   });
 
@@ -274,8 +279,8 @@ function bind() {
       return;
     }
     try {
-      await api.auth.resendOtp({ identifier });
-      showMessage("A new code is on its way.");
+      const result = await api.auth.resendOtp({ identifier });
+      showMessage(result?.devCode ? `Offline test code: ${result.devCode}` : "A new code is on its way.");
     } catch (error) {
       showMessage(error.message, "error");
     }
@@ -299,10 +304,10 @@ function bind() {
     event.preventDefault();
     submitting(event.currentTarget, async (fields) => {
       resetIdentifier = String(fields.get("identifier")).trim();
-      await api.auth.forgotPassword(role, { identifier: resetIdentifier });
+      const result = await api.auth.forgotPassword(role, { identifier: resetIdentifier });
       $("#forgot-form").hidden = true;
       $("#reset-form").hidden = false;
-      showMessage("If the account exists, a reset code has been sent.");
+      showMessage(result?.devCode ? `Offline test code: ${result.devCode}` : "If the account exists, a reset code has been sent.");
     });
   });
   $("#reset-form").addEventListener("submit", (event) => {
@@ -321,12 +326,6 @@ function bind() {
     });
   });
 
-  $("#demo-login").addEventListener("click", async () => {
-    const mock = await import("./mock/server.js");
-    const session = mock.demoLogin(role);
-    saveSession({ ...session, role, demo: true });
-    window.location.assign("app.html");
-  });
 }
 
 render();

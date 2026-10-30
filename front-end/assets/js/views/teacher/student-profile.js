@@ -238,7 +238,7 @@ export default async function studentProfile(ctx) {
         eyebrow: "Student card",
         size: "sm",
         body: html`<div class="id-card"><div><p class="eyebrow">Student code</p><p class="code">${student.userID}</p><p class="muted small">${gradeLabel(student.grade)} · ${student.centerName || ""}</p></div><img class="qr-img" src="${qr}" alt="QR code"></div>`,
-        actions: html`<a class="btn btn-secondary" href="${qr}" download="${student.userID}.png">Download</a><button class="btn btn-primary" onclick="window.print()">Print</button>`,
+        actions: html`<a class="btn btn-secondary" href="${qr}" download="${student.userID}.png">Download</a><button class="btn btn-primary" data-print>Print</button>`,
       });
     }
     if (action === "edit") {

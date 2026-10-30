@@ -556,7 +556,7 @@ export async function qrDataUrl(text, cellSize = 6) {
   if (!qrLibrary) {
     qrLibrary = window.qrcode
       ? Promise.resolve()
-      : loadScript("https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js");
+      : loadScript("/vendor/qrcode/qrcode.js").catch(() => loadScript("https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"));
   }
   await qrLibrary;
   const qr = window.qrcode(0, "M");

@@ -4,7 +4,7 @@ import { api } from "./core/api.js";
 import { PERMISSIONS, ROLES, STORAGE_KEYS } from "./core/config.js";
 import { icon } from "./core/icons.js";
 import { ROUTES, matchRoute } from "./core/routes.js";
-import { getAccessToken, getRole, isDemo, loginUrl, logout, scheduleRefresh } from "./core/session.js";
+import { getAccessToken, getRole, loginUrl, logout, scheduleRefresh } from "./core/session.js";
 import { $, $$, errorState, fullName, html, mount, on, skeleton, avatar, sameId } from "./core/ui.js";
 
 const role = getRole();
@@ -52,7 +52,7 @@ const ALL_PERMISSIONS = new Set(PERMISSIONS.map((permission) => permission.key))
 async function loadMe() {
   if (role === "teacher") {
     const profile = await api.teacher.profile();
-    return { role, id: profile._id, name: fullName(profile), person: profile, teacher: profile, permissions: ALL_PERMISSIONS };
+    return { role, id: profile._id, name: fullName(profile), person: profile, teacher: profile, permissions: ALL_PERMISSIONS, features: new Set(profile.features || []) };
   }
   if (role === "assistant") {
     const profile = await api.assistant.profile();
@@ -64,7 +64,12 @@ async function loadMe() {
       person: profile,
       teacher: profile.teacher,
       permissions: isAdmin ? ALL_PERMISSIONS : new Set(profile.permissions || []),
+      features: new Set(profile.features || []),
     };
+  }
+  if (role === "owner") {
+    const profile = await api.owner.profile();
+    return { role, id: profile._id, name: profile.name || profile.userName, person: profile };
   }
   if (role === "center") {
     const profile = await api.center.profile();
@@ -79,6 +84,7 @@ async function loadMe() {
 }
 
 function can(route) {
+  if (route.feature && me.features && ![].concat(route.feature).some((key) => me.features.has(key))) return false;
   if (role !== "assistant" || !route.perm) return true;
   const needed = [].concat(route.perm);
   return needed.some((perm) => me.permissions.has(perm));
@@ -138,6 +144,7 @@ function roleSubtitle() {
   if (role === "teacher") return html`Teacher${me.person.subject?.length ? ` · ${me.person.subject.join(", ")}` : ""}`;
   if (role === "center") return "Learning center";
   if (role === "student") return html`Student · ${me.person.userID || ""}`;
+  if (role === "owner") return "Platform owner";
   return "Parent";
 }
 
@@ -146,7 +153,7 @@ function renderShell() {
     shell,
     html`<div class="app">
       <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-        <a class="sidebar-brand" href="index.html"><span class="brand-mark">LC</span><span>Learning Center</span></a>
+        <a class="sidebar-brand" href="index.html"><span class="brand-mark">EC</span><span>EduCobra</span></a>
         <div class="sidebar-account">
           ${avatar(me.person)}
           <div><strong>${me.name}</strong><span>${roleSubtitle()}</span></div>
@@ -166,7 +173,6 @@ function renderShell() {
             <button class="icon-btn" id="theme-toggle" type="button" data-action="theme"></button>
           </div>
         </header>
-        ${isDemo() ? html`<div class="demo-banner">Demo mode — sample data stored only in this browser. <button type="button" class="link-btn" data-action="reset-demo">Reset demo data</button></div>` : ""}
         <main class="view" id="view" tabindex="-1"></main>
       </div>
     </div>`,
@@ -218,7 +224,7 @@ async function render() {
     else link.removeAttribute("aria-current");
   }
   $("#topbar-title").textContent = route.title;
-  document.title = `${route.title} | Learning Center`;
+  document.title = `${route.title} | EduCobra`;
 
   const host = $("#view");
   const root = document.createElement("div");
@@ -232,7 +238,7 @@ async function render() {
       navigate(fallback.path);
       return;
     }
-    mount(root, errorState({ message: "Your teacher hasn't given your account access to this page." }, ""));
+    mount(root, errorState({ message: route.feature && !([].concat(route.feature).some((key) => me.features?.has(key))) ? "This section isn't included in your plan. Contact EduCobra to add it." : "Your teacher hasn't given your account access to this page." }, ""));
     return;
   }
   mount(root, skeleton(6));
@@ -279,11 +285,6 @@ on(document, "click", "[data-action]", async (event, target) => {
   if (action === "theme") toggleTheme();
   if (action === "open-nav") document.body.classList.add("nav-open");
   if (action === "close-nav") document.body.classList.remove("nav-open");
-  if (action === "reset-demo") {
-    const mock = await import("./mock/server.js");
-    mock.resetDb();
-    window.location.reload();
-  }
 });
 on(document, "change", "#context-switcher", (event, select) => {
   localStorage.setItem(role === "student" ? STORAGE_KEYS.activeTeacher : STORAGE_KEYS.activeChild, select.value);
@@ -299,6 +300,8 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape") document.body.classList.remove("nav-open");
 });
+
+on(document, "click", "[data-print]", () => window.print());
 
 (async () => {
   mount(shell, html`<div class="boot">${skeleton(3)}</div>`);

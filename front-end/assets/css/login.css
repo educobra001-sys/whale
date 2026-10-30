@@ -121,3 +121,10 @@
         grid-template-columns: 1fr;
     }
 }
+
+.explore-page { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+.explore-tools { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.explore-tools input { flex: 1 1 240px; }
+.explore-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.explore-card { padding: 20px; border-radius: 16px; background: #fff; box-shadow: 0 4px 16px rgba(60, 40, 10, 0.08); }
+.explore-card h3 { margin: 0 0 6px; }

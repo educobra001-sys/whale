@@ -20,7 +20,7 @@ const updateSchema = z.object({
 const profile = async (req: any) => {
     const assistant = await repos.assistant.findById({ id: req.actor.id })
     const teacher = await repos.teacher.findById({ id: assistant.teacher })
-    return { ...(await teacherService.view(assistant)), teacher: teacherPublic(teacher) }
+    return { ...(await teacherService.view(assistant)), teacher: teacherPublic(teacher), features: teacher.features }
 }
 
 router.use(auth, requireRole(roleEnum.Assistant), teacherScope)

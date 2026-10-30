@@ -113,15 +113,16 @@ class SessionService {
             })
             if (payment) await repos.transaction.create({ student: student._id, amount: payment, type: "payment", reason: "Cash paid at attendance", by: actorId, session: id })
             await repos.transaction.create({ student: student._id, amount: -price, type: "attendance", reason: `Session · ${sessionLabel(session)}`, by: actorId, session: id })
-            await repos.session.updateone({ filter: { _id: id }, data: { $inc: { presentCount: 1, collected: payment } } })
             return updated.balance as number
         }).catch((error) => {
             if (error?.code === 11000) throw new ConflictError("Student is already marked present")
             throw error
         })
+        // Outside the transaction: every scan touches this one document, so inside it they would all collide and retry.
+        const updatedSession = await repos.session.findByIdAndUpdate({ id, data: { $inc: { presentCount: 1, collected: payment } } })
         await markActive(teacherId, student._id, "attendance")
         return {
-            session: await sessionView(await this.own(id), { withRows: false }),
+            session: await sessionView(updatedSession, { withRows: false }),
             student: await studentView({ ...entry, balance }),
             charged: price,
             balance,
@@ -219,7 +220,7 @@ class SessionService {
         const [warnings, booklets, sessions] = await Promise.all([
             repos.warning.findall({ filter: { student: student._id }, sort: { createdAt: -1 } }),
             repos.bookletOrder.findall({ filter: { student: student._id, delivered: false, status: { $ne: "rejected" } }, populate: { path: "booklet", select: "name" } }),
-            studentSessionRows(student._id, entry),
+            studentSessionRows(student._id, entry, 4),
         ])
         if (warnings.length >= 3) reasons.push(`${warnings.length} warnings`)
         const people = await peopleRefs([row?.markedBy, ...warnings.map((warning) => warning.by)])

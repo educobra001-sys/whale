@@ -1,8 +1,8 @@
 import { Queue } from "bullmq"
-import IORedis from "ioredis"
 import { env } from "../../config/env.service"
 
-export const queueConnection = () => new IORedis(env.redis_url, { maxRetriesPerRequest: null })
+// Plain options rather than a shared client: BullMQ then closes the connection itself.
+export const queueConnection = () => ({ url: env.redis_url, maxRetriesPerRequest: null })
 
 export const FAST_QUEUE = "messages-fast"
 export const WHATSAPP_WEB_QUEUE = "messages-whatsapp-web"

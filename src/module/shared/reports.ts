@@ -4,13 +4,13 @@ import { centerNames, peopleRefs, refOf } from "../../common/service/lookups"
 import { repos } from "../../db/repository"
 import { examStats } from "./views"
 
-export const studentSessionRows = async (studentId: any, entry: any) => {
+export const studentSessionRows = async (studentId: any, entry: any, limit = 200) => {
     const filter: any = entry?.center
         ? { $or: [{ center: entry.center }, { center: null }] }
         : {}
     const [sessions, rows] = await Promise.all([
-        repos.session.findall({ filter, sort: { date: -1 }, limit: 200 }),
-        repos.attendance.findall({ filter: { student: studentId }, sort: { markedAt: -1 }, limit: 400 }),
+        repos.session.findall({ filter, sort: { date: -1 }, limit }),
+        repos.attendance.findall({ filter: { student: studentId }, sort: { markedAt: -1 }, limit: limit * 2 }),
     ])
     const known = new Set(sessions.map((session) => String(session._id)))
     const extra = rows.filter((row) => !known.has(String(row.session))).map((row) => row.session)

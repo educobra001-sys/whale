@@ -27,7 +27,7 @@ export default async function studentHome(ctx) {
     return;
   }
 
-  const data = await api.student.overview(ctx.teacherId);
+  const [data, platformAds] = await Promise.all([api.student.overview(ctx.teacherId), api.me.platformAds().catch(() => [])]);
   const teacher = data.teacher;
   const lowBalance = data.balance < (data.pricePerSession || 0);
 
@@ -57,6 +57,7 @@ export default async function studentHome(ctx) {
         </section>
         <section><h2 class="eyebrow" style="font-size:12px">From ${fullName(teacher)}</h2>
           ${data.announcements.length ? html`<div class="tile-grid">${data.announcements.map((item) => announcementCard(item))}</div>` : html`<div class="card">${emptyState("No announcements")}</div>`}
+          ${platformAds.length ? html`<p class="eyebrow mt">From other teachers on EduCobra</p><div class="tile-grid">${platformAds.map((item) => announcementCard(item))}</div>` : ""}
         </section>
       </div>
       <div class="stack">

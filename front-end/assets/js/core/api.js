@@ -251,6 +251,62 @@ export const api = {
     deleteExpense: (expenseId) => del(`/teacher/expenses/${id(expenseId)}`),
 
     leaderboard: () => get("/teacher/leaderboard"),
+
+    billing: () => get("/teacher/billing"),
+    links: () => get("/teacher/links"),
+    requestLink: (userName) => post("/teacher/links", { userName }),
+    answerLink: (linkId, accept) => patch(`/teacher/links/${id(linkId)}`, { accept }),
+    removeLink: (linkId) => del(`/teacher/links/${id(linkId)}`),
+    requestPlatformAd: (announcementId) => post(`/teacher/announcements/${id(announcementId)}/request-platform`),
+    withdrawPlatformAd: (announcementId) => post(`/teacher/announcements/${id(announcementId)}/withdraw-platform`),
+
+    messageConfig: () => get("/teacher/messages/config"),
+    saveMessageTemplate: (type, body) => put(`/teacher/messages/templates/${id(type)}`, { body }),
+    previewMessages: (body) => post("/teacher/messages/preview", body),
+    previewMessage: (body) => post("/teacher/messages/preview-one", body),
+    sendMessages: (body) => post("/teacher/messages/send", body),
+    reportMessage: (itemId, status) => patch(`/teacher/messages/items/${id(itemId)}`, { status }),
+    messageBatches: () => get("/teacher/messages/batches"),
+    messageBatch: (batchId) => get(`/teacher/messages/batches/${id(batchId)}`),
+  },
+
+  // ---------- Every account ----------
+  me: {
+    referral: () => get("/me/referral"),
+    platformAds: () => get("/me/platform-ads"),
+    telegram: () => get("/me/telegram"),
+  },
+
+  // ---------- Platform owner ----------
+  owner: {
+    profile: () => get("/owner/profile"),
+    dashboard: () => get("/owner/dashboard"),
+    teachers: (query) => get("/owner/teachers", query),
+    teacher: (teacherId) => get(`/owner/teachers/${id(teacherId)}`),
+    setTeacherStatus: (teacherId, body) => patch(`/owner/teachers/${id(teacherId)}/status`, body),
+    setChannels: (teacherId, body) => patch(`/owner/teachers/${id(teacherId)}/channels`, body),
+    setAffiliate: (teacherId, body) => patch(`/owner/teachers/${id(teacherId)}/affiliate`, body),
+    addRule: (teacherId, body) => post(`/owner/teachers/${id(teacherId)}/rules`, body),
+    removeRule: (teacherId, ruleId) => del(`/owner/teachers/${id(teacherId)}/rules/${id(ruleId)}`),
+    features: () => get("/owner/features"),
+    updateFeature: (featureId, body) => patch(`/owner/features/${id(featureId)}`, body),
+    confirmPlan: (body) => post("/owner/plans/confirm", body),
+    centers: (query) => get("/owner/centers", query),
+    createCenter: (body) => post("/owner/centers", body),
+    setCenterStatus: (centerId, body) => patch(`/owner/centers/${id(centerId)}/status`, body),
+    billing: (query) => get("/owner/billing", query),
+    generateInvoices: (month) => post("/owner/billing/generate", { month }),
+    setInvoice: (invoiceId, body) => patch(`/owner/invoices/${id(invoiceId)}`, body),
+    affiliates: (query) => get("/owner/affiliates", query),
+    lookupReferral: (code) => get(`/owner/referrals/${id(code)}`),
+    setEarning: (earningId, status) => patch(`/owner/affiliates/${id(earningId)}`, { status }),
+    ads: (query) => get("/owner/ads", query),
+    reviewAd: (adId, body) => patch(`/owner/ads/${id(adId)}`, body),
+    messaging: () => get("/owner/messaging"),
+    updateMessaging: (body) => patch("/owner/messaging", body),
+    whatsapp: () => get("/owner/whatsapp"),
+    connectWhatsapp: () => post("/owner/whatsapp/connect"),
+    logoutWhatsapp: () => post("/owner/whatsapp/logout"),
   },
 
   // ---------- Assistant (own account only; teaching data goes through api.teacher) ----------

@@ -56,6 +56,7 @@ export const createApp = (): Express => {
     })
 
     app.use("/files", express.static(uploadRoot, { index: false, dotfiles: "deny", maxAge: "30d", immutable: true }))
+    app.use("/vendor/qrcode", express.static(path.resolve(__dirname, "../node_modules/qrcode-generator/dist")))
     app.use("/vendor", express.static(path.resolve(__dirname, "../node_modules/jsqr/dist")))
 
     app.use(AuthRouter)

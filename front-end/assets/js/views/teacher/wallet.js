@@ -202,8 +202,8 @@ export default async function wallet(ctx) {
       openDialog({
         title: `${plural(list.length, "code")} ready to print`,
         size: "xl",
-        body: html`<div class="code-list">${list.map((code) => html`<div class="code-chip"><span class="muted small">Learning Center · ${money(code.amount)}</span><strong>${code.code}</strong><span class="muted small">Redeem from Wallet → Recharge code</span></div>`)}</div>`,
-        actions: html`<button class="btn btn-primary" onclick="window.print()">Print</button>`,
+        body: html`<div class="code-list">${list.map((code) => html`<div class="code-chip"><span class="muted small">EduCobra · ${money(code.amount)}</span><strong>${code.code}</strong><span class="muted small">Redeem from Wallet → Recharge code</span></div>`)}</div>`,
+        actions: html`<button class="btn btn-primary" data-print>Print</button>`,
       });
     }
     if (action === "export-tx") {

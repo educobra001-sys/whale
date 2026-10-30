@@ -4,7 +4,7 @@
 export const API_BASE =
   window.location.port === "5500" ? "http://127.0.0.1:3000" : window.location.origin;
 
-export const APP_NAME = "Learning Center";
+export const APP_NAME = "EduCobra";
 export const CURRENCY = "EGP";
 
 export const ROLES = {
@@ -13,6 +13,7 @@ export const ROLES = {
   center: { label: "Learning center", home: "#/dashboard", loginPath: "/login/center" },
   student: { label: "Student", home: "#/home", loginPath: "/login/student" },
   parent: { label: "Parent", home: "#/home", loginPath: "/login/parent" },
+  owner: { label: "EduCobra owner", home: "#/dashboard", loginPath: "/login/owner", hidden: true },
 };
 
 // Enum values match the backend: grade / learningLanguage are stored as index strings ("0", "1", ...).
@@ -50,6 +51,7 @@ export const PERMISSIONS = [
   { key: "announcements", label: "Announcements" },
   { key: "follow_up", label: "Student follow-up" },
   { key: "finance", label: "Finance and expenses" },
+  { key: "messages", label: "Send attendance and absence messages" },
 ];
 
 export const STORAGE_KEYS = {

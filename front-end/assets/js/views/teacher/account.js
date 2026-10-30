@@ -23,7 +23,7 @@ export function passwordDialog(api, role) {
 
 export default async function account(ctx) {
   const { root, api, reloadMe } = ctx;
-  const profile = await api.teacher.profile();
+  const [profile, links] = await Promise.all([api.teacher.profile(), api.teacher.links()]);
 
   const fields = [
     { name: "firstName", label: "First name", value: profile.firstName },
@@ -33,6 +33,7 @@ export default async function account(ctx) {
     { name: "subject", label: "Subjects", type: "checkboxes", options: SUBJECTS, value: (profile.subject || []).map((value) => (typeof value === "number" ? SUBJECTS[value] : value)) },
     { name: "teachingLanguage", label: "Teaching language", type: "select", options: LANGUAGES, value: typeof profile.teachingLanguage === "number" ? LANGUAGES[profile.teachingLanguage] : profile.teachingLanguage },
     { name: "bio", label: "About you (shown to students in the teacher directory)", type: "textarea", full: true, value: profile.bio },
+    { name: "visibility", label: "Who can find you", type: "select", full: true, options: [{ value: "private", label: "Private: only my students" }, { value: "public", label: "Public: anyone can discover my profile and content" }], value: profile.visibility, hint: "Switching to private hides your profile and lessons from the directory straight away." },
   ];
 
   mount(
@@ -51,6 +52,14 @@ export default async function account(ctx) {
           <div class="status-chips mb">${(profile.subject || []).map((subject) => badge(typeof subject === "number" ? SUBJECTS[subject] : subject, "accent"))}</div>
           <p class="muted small">Students find you by name or username <strong>@${profile.userName}</strong> and send a join request. Centers invite you with the same username.</p>
           <div class="row"><label class="btn btn-secondary btn-sm" for="photo-input">${icon("upload", 15)} Change photo</label><input id="photo-input" type="file" accept="image/*" hidden></div>
+        </section>
+        <section class="card">
+          <div class="card-head"><h3>Linked teachers</h3><button class="btn btn-secondary btn-sm" data-action="link">Link a teacher</button></div>
+          <p class="muted small mb">Your accounts stay separate. Linking never shares students, money or content.</p>
+          ${links.length ? html`<ul class="list">${links.map((link) => html`<li class="list-item"><span class="grow"><strong>${fullName(link.teacher)}</strong> <span class="muted small">@${link.teacher.userName}</span></span>
+            ${link.status === "pending" && link.direction === "received" ? html`<button class="btn btn-primary btn-sm" data-action="accept-link" data-id="${link._id}">Accept</button>` : ""}
+            ${link.status === "pending" && link.direction === "sent" ? badge("Waiting", "warn") : ""}
+            <button class="btn btn-ghost btn-sm" data-action="remove-link" data-id="${link._id}">${link.status === "active" ? "Unlink" : "Remove"}</button></li>`)}</ul>` : html`<p class="muted small">No linked teachers.</p>`}
         </section>
         <section class="card">
           <div class="card-head"><h3>Sign-in details</h3></div>
@@ -86,6 +95,24 @@ export default async function account(ctx) {
     }
   });
   on(root, "click", "[data-action]", async (event, button) => {
+    if (button.dataset.action === "link") {
+      const saved = await formDialog({
+        title: "Link a teacher",
+        size: "sm",
+        fields: [{ name: "userName", label: "Their username", required: true, full: true }],
+        submitLabel: "Send request",
+        onSubmit: ({ userName }) => api.teacher.requestLink(userName.replace(/^@/, "")),
+      });
+      if (saved) await ctx.refresh();
+    }
+    if (button.dataset.action === "accept-link") {
+      await withBusy(button, () => api.teacher.answerLink(button.dataset.id, true));
+      await ctx.refresh();
+    }
+    if (button.dataset.action === "remove-link") {
+      await withBusy(button, () => api.teacher.removeLink(button.dataset.id));
+      await ctx.refresh();
+    }
     if (button.dataset.action === "password") {
       if (await passwordDialog(api, "teacher")) toast("Password updated.");
     }
