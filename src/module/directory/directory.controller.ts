@@ -2,7 +2,7 @@ import { Router } from "express"
 import { send } from "../../common/exceptions/successresponce"
 import { auth, optionalAuth, platformScope } from "../../middleware/auth.middleware"
 import { rateLimit } from "../../middleware/security.middleware"
-import { storeUpload, uploadFile } from "../../common/service/upload"
+import { storeUpload, uploadFile, verifyUpload } from "../../common/service/upload"
 import { BadRequestError } from "../../common/exceptions/error.exceptions"
 import directoryService from "./directory.service"
 
@@ -15,6 +15,7 @@ router.get("/centers/search", optionalAuth, publicLimit, platformScope, send((re
 
 router.post("/uploads", auth, rateLimit({ name: "uploads", windowSeconds: 60, max: 30 }), uploadFile.single("file"), send(async (req) => {
     if (!req.file) throw new BadRequestError("No file uploaded")
+    await verifyUpload(req.file)
     return { url: await storeUpload(req.file) }
 }, "Uploaded", 201))
 

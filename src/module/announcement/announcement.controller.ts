@@ -4,7 +4,7 @@ import { ConflictError, NotFoundError } from "../../common/exceptions/error.exce
 import { send } from "../../common/exceptions/successresponce"
 import { pick } from "../../common/service/helpers"
 import { validation } from "../../common/service/validation"
-import { params, text } from "../../common/service/zodTypes"
+import { params, text, safeUrl } from "../../common/service/zodTypes"
 import { repos } from "../../db/repository"
 import { can, requireFeature } from "../../middleware/auth.middleware"
 
@@ -14,9 +14,9 @@ const id = (req: any) => params(req.params.id)
 const announcementSchema = z.object({
     title: z.string().trim().min(1).max(200),
     body: text(4000).optional(),
-    imageUrl: text(2048).optional(),
-    videoUrl: text(2048).optional(),
-    linkUrl: text(2048).optional(),
+    imageUrl: safeUrl().optional(),
+    videoUrl: safeUrl().optional(),
+    linkUrl: safeUrl().optional(),
     audience: z.object({ grades: z.array(z.string()).max(10).optional(), centers: z.array(z.string()).max(100).optional() }).optional(),
     isActive: z.boolean().optional(),
     pinned: z.boolean().optional(),

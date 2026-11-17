@@ -11,6 +11,7 @@ export const ROLES = {
   teacher: { label: "Teacher", home: "#/dashboard", loginPath: "/login/teacher" },
   assistant: { label: "Assistant", home: "#/dashboard", loginPath: "/login/assistant" },
   center: { label: "Learning center", home: "#/dashboard", loginPath: "/login/center" },
+  school: { label: "School / organization", home: "#/dashboard", loginPath: "/login/school" },
   student: { label: "Student", home: "#/home", loginPath: "/login/student" },
   parent: { label: "Parent", home: "#/home", loginPath: "/login/parent" },
   owner: { label: "EduCobra owner", home: "#/dashboard", loginPath: "/login/owner", hidden: true },
@@ -21,6 +22,10 @@ export const GRADES = ["S1", "S2", "S3"];
 export const LANGUAGES = ["Arabic", "English"];
 export const SUBJECTS = ["Math", "Physics", "English", "Science", "Biology", "Chemistry", "Arabic"];
 export const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// Centers and schools share every screen; only the words change.
+export const placeWord = (kind) => (kind === "school" ? "school" : "center");
+export const placeTitle = (kind) => (kind === "school" ? "School" : "Center");
 
 export const HOMEWORK_STATUS = {
   complete: { label: "Complete", tone: "success" },

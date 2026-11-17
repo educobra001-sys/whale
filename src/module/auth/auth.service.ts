@@ -3,9 +3,11 @@ import QRCode from "qrcode"
 import { emailConfigured, otpEmail, sendEmail } from "../../common/email/sendemail"
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, TooManyRequestsError, UnauthorizedError } from "../../common/exceptions/error.exceptions"
 import { roleEnum } from "../../common/enum/user.enum"
+import { assertLoginAllowed, clearLoginFailures, recordLoginFailure } from "../../common/security/loginLimiter"
 import { compareHash, genertateHash } from "../../common/security/security"
 import { forgetActor, getActor } from "../../common/service/actorService"
 import { nameKey, normalizePhone } from "../../common/service/helpers"
+import { kindFilter, PlaceKind, placeWord } from "../../common/service/places"
 import { redisService } from "../../common/service/redisService"
 import { duplicateStudentError, findExistingStudent, nextStudentId } from "../../common/service/registry"
 import { TokenService } from "../../common/service/token"
@@ -14,14 +16,18 @@ import { repos } from "../../db/repository"
 
 const OTP_TTL = 60 * 10
 const MAX_OTP_TRIES = 5
-const MAX_LOGIN_FAILURES = 8
-const LOCK_SECONDS = 60 * 15
+const FAILED_LOGIN_DELAY_MS = 400
 
-const lookups: Record<string, { repo: any; fields: string[] }> = {
+// Compared against when the account doesn't exist, so a wrong username takes as long as a wrong password.
+let dummyHash: Promise<string> | null = null
+const timingDummy = () => (dummyHash ??= genertateHash({ plainText: crypto.randomBytes(16).toString("hex") }))
+
+const lookups: Record<string, { repo: any; fields: string[]; filter?: any }> = {
     owner: { repo: repos.owner, fields: ["email", "userName"] },
     teacher: { repo: repos.teacher, fields: ["email", "phone", "userName"] },
     assistant: { repo: repos.assistant, fields: ["email", "phone", "userName"] },
-    center: { repo: repos.center, fields: ["phone", "name"] },
+    center: { repo: repos.center, fields: ["phone", "name"], filter: kindFilter("center") },
+    school: { repo: repos.center, fields: ["phone", "name"], filter: kindFilter("school") },
     student: { repo: repos.student, fields: ["phone", "userID"] },
     parent: { repo: repos.parent, fields: ["phone"] },
 }
@@ -33,7 +39,7 @@ class AuthService {
         const lookup = lookups[role]
         if (!lookup) throw new NotFoundError("Unknown account type")
         const values = [identifier, identifier.toLowerCase(), normalizePhone(identifier)].filter(Boolean)
-        return lookup.repo.findone({ filter: { $or: lookup.fields.map((field) => ({ [field]: { $in: values } })) } })
+        return lookup.repo.findone({ filter: { ...lookup.filter, $or: lookup.fields.map((field) => ({ [field]: { $in: values } })) } })
     }
 
     private async issueOtp(scope: string, email: string, purpose: string) {
@@ -114,13 +120,18 @@ class AuthService {
         return { userID, qrCode }
     }
 
-    async centerSignup(data: any) {
+    // Centers and schools sign up the same way and wait for the owner's approval.
+    async placeSignup(data: any, kind: PlaceKind = "center") {
         data.phone = normalizePhone(data.phone)
         const existing = await repos.center.findone({ filter: { $or: [{ phone: data.phone }, { name: data.name }] } })
-        if (existing) throw new ConflictError(existing.phone === data.phone ? "Phone number already registered" : "This center name is taken")
+        if (existing) throw new ConflictError(existing.phone === data.phone ? "Phone number already registered" : `This ${placeWord(kind)} name is taken`)
         const password = await genertateHash({ plainText: data.password })
-        const center = await repos.center.create({ ...data, password, status: "pending_approval" })
-        return { name: center.name, status: center.status }
+        const place = await repos.center.create({ ...data, kind, password, status: "pending_approval" })
+        return { name: place.name, kind, status: place.status }
+    }
+
+    centerSignup(data: any) {
+        return this.placeSignup(data, "center")
     }
 
     async parentSignup({ name, phone, childCode, password }: any) {
@@ -143,25 +154,25 @@ class AuthService {
             }
             if (messages[account.status]) throw new ForbiddenError(messages[account.status], { code: account.status.toUpperCase() })
         }
-        if (role === "center" && account.status !== "active") {
+        if ((role === "center" || role === "school") && account.status !== "active") {
+            const word = placeWord(account.kind)
             throw new ForbiddenError(account.status === "pending_approval"
-                ? "Your center is being reviewed by the EduCobra team."
-                : "This center account isn't active.", { code: account.status.toUpperCase() })
+                ? `Your ${word} is being reviewed by the EduCobra team.`
+                : `This ${word} account isn't active.`, { code: account.status.toUpperCase() })
         }
     }
 
-    async login(role: string, { identifier, password }: { identifier: string; password: string }) {
-        const lockKey = `login-fail:${role}:${identifier.toLowerCase()}`
-        const failures = Number(await redisService.get({ key: lockKey }).catch(() => 0))
-        if (failures >= MAX_LOGIN_FAILURES) throw new TooManyRequestsError("Too many failed attempts. Try again in 15 minutes.")
+    async login(role: string, { identifier, password }: { identifier: string; password: string }, ip = "") {
+        await assertLoginAllowed(role, identifier, ip)
         const account = await this.findAccount(role, identifier)
-        const matched = account?.password ? await compareHash({ plainText: password, cypherText: account.password }) : false
-        if (!matched) {
-            await redisService.hit(lockKey, LOCK_SECONDS).catch(() => undefined)
+        const matched = await compareHash({ plainText: password, cypherText: account?.password || await timingDummy() })
+        if (!account?.password || !matched) {
+            await recordLoginFailure(role, identifier, ip)
+            await new Promise((resolve) => setTimeout(resolve, FAILED_LOGIN_DELAY_MS))
             throw new UnauthorizedError("Incorrect sign-in details")
         }
         this.statusCheck(role, account)
-        await redisService.redis_delete({ key: lockKey }).catch(() => undefined)
+        await clearLoginFailures(role, identifier, ip)
         if (role === "assistant") {
             const teacher = await repos.teacher.findById({ id: account.teacher, select: "status" })
             if (teacher?.status !== "active") throw new ForbiddenError("Your teacher's account isn't active.")
@@ -215,9 +226,12 @@ class AuthService {
         const lookup = lookups[role]!
         const account = await lookup.repo.findById({ id })
         if (!account) throw new NotFoundError("Account not found")
+        await assertLoginAllowed(`password:${role}`, id, "")
         if (!(await compareHash({ plainText: currentPassword, cypherText: account.password }))) {
+            await recordLoginFailure(`password:${role}`, id, "")
             throw new BadRequestError("Your current password isn't correct")
         }
+        await clearLoginFailures(`password:${role}`, id, "")
         await lookup.repo.updateone({
             filter: { _id: id },
             data: { $set: { password: await genertateHash({ plainText: newPassword }) }, $inc: { tokenVersion: 1 } },

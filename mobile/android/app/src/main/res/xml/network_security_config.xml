@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This build is for testing on your own Wi-Fi, where the EduCobra server runs on a computer at an address
+     like http://192.168.1.20:4000. Plain http is allowed for that. Before publishing the app, point it at an
+     https server and set cleartextTrafficPermitted to "false". -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>

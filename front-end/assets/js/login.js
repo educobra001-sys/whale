@@ -1,4 +1,4 @@
-// Unified sign-in / registration page for every account type: login.html?role=teacher|student|center|assistant|parent
+// Unified sign-in / registration page for every account type: login.html?role=teacher|student|center|school|assistant|parent
 import { api } from "./core/api.js";
 import { GRADES, LANGUAGES, ROLES, SUBJECTS } from "./core/config.js";
 import { getAccessToken, getRole, saveSession } from "./core/session.js";
@@ -80,6 +80,23 @@ const CONFIG = {
     panels: ["register", "login"],
     register: html`<form id="register-form">
         ${field("name", "Center name", 'autocomplete="organization" required')}
+        ${field("phone", "Phone number", 'type="tel" autocomplete="tel" required')}
+        ${field("localphone", "Landline (optional)", 'type="tel"')}
+        ${field("textlocation", "Address (optional)", 'autocomplete="street-address"')}
+        ${field("Maplocation", "Map link (optional)", 'type="url" placeholder="https://maps.google.com/..."')}
+        ${field("password", "Password", 'type="password" autocomplete="new-password" minlength="8" required')}
+        ${field("confirmPassword", "Confirm password", 'type="password" autocomplete="new-password" minlength="8" required')}
+        <button class="submit-button" type="submit">Create account <span aria-hidden="true">&#8594;</span></button>
+      </form>`,
+  },
+  school: {
+    eyebrow: "SCHOOL & ORGANIZATION PORTAL",
+    title: "Teaching that<br>comes to you.",
+    text: "Register your school or organization, accept the teachers who teach your students and follow every session and closing.",
+    identifier: "School name or phone number",
+    panels: ["register", "login"],
+    register: html`<form id="register-form">
+        ${field("name", "School or organization name", 'autocomplete="organization" required')}
         ${field("phone", "Phone number", 'type="tel" autocomplete="tel" required')}
         ${field("localphone", "Landline (optional)", 'type="tel"')}
         ${field("textlocation", "Address (optional)", 'autocomplete="street-address"')}
@@ -258,7 +275,7 @@ function bind() {
       }
       $("#login-form [name=identifier]").value = body.phone || body.name || "";
       showPanel("login-panel");
-      showMessage(role === "center" ? "Account created. The EduCobra team will review your center before you can sign in." : "Account created. You can now sign in.");
+      showMessage(role === "center" || role === "school" ? `Account created. The EduCobra team will review your ${role === "school" ? "school" : "center"} before you can sign in.` : "Account created. You can now sign in.");
     });
   });
 

@@ -49,7 +49,7 @@ export const STUDENT_FIELDS = ["_id", "userID", "firstName", "lastName", "phone"
 export const STUDENT_REF_FIELDS = ["_id", "userID", "firstName", "lastName", "phone", "parentPhone", "grade", "profilepic"] as const
 export const STUDENT_REF_SELECT = "userID firstName lastName phone parentPhone grade profilepic"
 export const TEACHER_PUBLIC_FIELDS = ["_id", "userName", "firstName", "lastName", "companyName", "subject", "teachingLanguage", "gender", "profilepic", "bio", "visibility", "createdAt"] as const
-export const CENTER_PUBLIC_FIELDS = ["_id", "name", "phone", "localphone", "textlocation", "Maplocation", "createdAt"] as const
+export const CENTER_PUBLIC_FIELDS = ["_id", "name", "kind", "phone", "localphone", "textlocation", "Maplocation", "createdAt"] as const
 
 export const studentPublic = (student: any) => (student ? pick(student, STUDENT_FIELDS) : null)
 export const studentRefOf = (student: any, id?: unknown) =>

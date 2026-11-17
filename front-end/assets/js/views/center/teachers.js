@@ -5,6 +5,9 @@ import {
 import { weekGrid } from "../teacher/schedule.js";
 
 export default async function centerTeachers(ctx) {
+  const isSchool = ctx.me?.role === "school";
+  const word = isSchool ? "school" : "center";
+  const Word = isSchool ? "School" : "Center";
   const { root, api } = ctx;
   let links = [];
   let results = [];
@@ -38,9 +41,9 @@ export default async function centerTeachers(ctx) {
     mount(
       root,
       html`${pageHeader({
-        eyebrow: "Center",
+        eyebrow: Word,
         title: "Teachers",
-        text: "Teachers who teach at your center. You see their groups and session closings here — their students' personal data stays private to them.",
+        text: `Teachers who teach at your ${word}. You see their groups and session closings here — their students' personal data stays private to them.`,
         actions: html`<button class="btn btn-primary" data-action="invite">${icon("plus")} Invite a teacher</button>`,
       })}
       ${requests.length
@@ -49,12 +52,12 @@ export default async function centerTeachers(ctx) {
               teacherTile(link, html`<span class="muted small">${relative(link.createdAt)}</span><span class="row"><button class="btn btn-sm btn-secondary" data-action="reject" data-id="${link.teacher._id}">Decline</button><button class="btn btn-sm btn-primary" data-action="accept" data-id="${link.teacher._id}">Accept</button></span>`),
             )}</div></section>`
         : ""}
-      <section class="mb"><h2 class="eyebrow" style="font-size:12px">Teaching at your center (${active.length})</h2>
+      <section class="mb"><h2 class="eyebrow" style="font-size:12px">Teaching at your ${word} (${active.length})</h2>
         ${active.length
           ? html`<div class="tile-grid">${active.map((link) =>
               teacherTile(link, html`<button class="btn btn-sm btn-secondary" data-action="view" data-id="${link.teacher._id}">Groups & contact</button><button class="btn btn-sm btn-ghost" data-action="remove" data-id="${link.teacher._id}">Remove</button>`),
             )}</div>`
-          : html`<div class="card">${emptyState("No teachers yet", "Invite teachers by their username, or share your center name so they can request to join.")}</div>`}
+          : html`<div class="card">${emptyState("No teachers yet", `Invite teachers by their username, or share your ${word} name so they can request to join.`)}</div>`}
       </section>
       ${invited.length
         ? html`<section class="mb"><h2 class="eyebrow" style="font-size:12px">Invitations waiting for an answer</h2>
@@ -85,7 +88,7 @@ export default async function centerTeachers(ctx) {
     if (action === "invite") {
       const saved = await formDialog({
         title: "Invite a teacher",
-        intro: "The teacher gets an invitation in their Learning centers page and can accept it.",
+        intro: "The teacher gets an invitation in their Centers & schools page and can accept it.",
         fields: [{ name: "identifier", label: "Teacher's username, email or phone", required: true, full: true }],
         submitLabel: "Send invitation",
         onSubmit: (body) => api.center.inviteTeacher(body),
@@ -102,7 +105,7 @@ export default async function centerTeachers(ctx) {
       await reload(action === "accept" ? "Teacher accepted." : "Request declined.");
     }
     if (action === "remove") {
-      if (!(await confirmDialog(`Remove ${fullName(link.teacher)} from your center?`, { danger: true, confirmLabel: "Remove" }))) return;
+      if (!(await confirmDialog(`Remove ${fullName(link.teacher)} from your ${word}?`, { danger: true, confirmLabel: "Remove" }))) return;
       if (!(await withBusy(button, () => api.center.removeTeacher(id)))) return;
       await reload("Teacher removed.");
     }
@@ -113,7 +116,7 @@ export default async function centerTeachers(ctx) {
         eyebrow: (teacher.subject || []).join(", "),
         size: "xl",
         body: html`<div class="row mb">${teacher.phone ? html`<a class="btn btn-sm btn-secondary" href="tel:${teacher.phone}">${teacher.phone}</a><a class="btn btn-sm btn-success" href="${whatsappLink(teacher.phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ""}${teacher.email ? html`<a class="btn btn-sm btn-ghost" href="mailto:${teacher.email}">${teacher.email}</a>` : ""}</div>
-          ${link.slots.length ? weekGrid(link.slots) : emptyState("No weekly groups at your center yet")}`,
+          ${link.slots.length ? weekGrid(link.slots) : emptyState(`No weekly groups at your ${word} yet`)}`,
         actions: html`<button class="btn btn-primary" data-close>Close</button>`,
       });
     }

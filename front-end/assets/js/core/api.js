@@ -107,6 +107,7 @@ const patch = (path, body) => send("PATCH", path, { body });
 const put = (path, body) => send("PUT", path, { body });
 const del = (path, body) => send("DELETE", path, { body });
 const id = (value) => encodeURIComponent(value);
+const place = () => (getRole() === "school" ? "/school" : "/center");
 
 export const api = {
   // ---------- Auth (public) ----------
@@ -316,17 +317,17 @@ export const api = {
     workLog: () => get("/assistant/work-log"),
   },
 
-  // ---------- Learning center ----------
+  // ---------- Learning center / school (same routes under /center or /school) ----------
   center: {
-    profile: () => get("/center/profile"),
-    updateProfile: (body) => patch("/center/profile", body),
-    dashboard: () => get("/center/dashboard"),
-    teachers: () => get("/center/teachers"),
-    inviteTeacher: (body) => post("/center/teachers/invite", body),
-    answerTeacher: (teacherId, status) => patch(`/center/teachers/${id(teacherId)}`, { status }),
-    removeTeacher: (teacherId) => del(`/center/teachers/${id(teacherId)}`),
-    schedule: () => get("/center/schedule"),
-    sessions: (query) => get("/center/sessions", query),
+    profile: () => get(`${place()}/profile`),
+    updateProfile: (body) => patch(`${place()}/profile`, body),
+    dashboard: () => get(`${place()}/dashboard`),
+    teachers: () => get(`${place()}/teachers`),
+    inviteTeacher: (body) => post(`${place()}/teachers/invite`, body),
+    answerTeacher: (teacherId, status) => patch(`${place()}/teachers/${id(teacherId)}`, { status }),
+    removeTeacher: (teacherId) => del(`${place()}/teachers/${id(teacherId)}`),
+    schedule: () => get(`${place()}/schedule`),
+    sessions: (query) => get(`${place()}/sessions`, query),
   },
 
   // ---------- Student ----------

@@ -3,6 +3,9 @@ import { badge, date, downloadCSV, fullName, html, isoDate, money, mount, on, pa
 import { personCell } from "../shared/common.js";
 
 export default async function centerSessions(ctx) {
+  const isSchool = ctx.me?.role === "school";
+  const word = isSchool ? "school" : "center";
+  const Word = isSchool ? "School" : "Center";
   const { root, api } = ctx;
   const range = { from: isoDate(Date.now() - 29 * 86400000), to: isoDate() };
   let sessions = [];
@@ -21,9 +24,9 @@ export default async function centerSessions(ctx) {
     mount(
       root,
       html`${pageHeader({
-        eyebrow: "Center",
+        eyebrow: Word,
         title: "Sessions & closings",
-        text: "Every session held at your center and the amount each teacher owes you (calculated by the teacher from the session's attendance).",
+        text: `Every session held at your ${word} and the amount each teacher owes you (calculated by the teacher from the session's attendance).`,
         actions: html`<button class="btn btn-secondary" data-action="export">${icon("download")} Export</button>`,
       })}
       <div class="toolbar">
@@ -48,7 +51,7 @@ export default async function centerSessions(ctx) {
           { label: "Closing", className: "num", render: (session) => (session.closing ? html`<strong>${money(session.closing.total)}</strong>` : badge("Not set", "warn")) },
         ],
         visible,
-        { empty: "No sessions at your center in this period." },
+        { empty: `No sessions at your ${word} in this period.` },
       )}</div>`,
     );
   }
@@ -63,7 +66,7 @@ export default async function centerSessions(ctx) {
     render();
   });
   on(root, "click", "[data-action=export]", () =>
-    downloadCSV(`center-closings-${range.from}-to-${range.to}`, [
+    downloadCSV(`${word}-closings-${range.from}-to-${range.to}`, [
       { label: "Date", value: (s) => isoDate(s.date) },
       { label: "Teacher", value: (s) => fullName(s.teacher) },
       { label: "Session", value: (s) => `Week ${s.week} #${s.number} ${s.sequence}` },

@@ -3,6 +3,7 @@ import { genertateHash } from "../../common/security/security"
 import { forgetTeacherTeam } from "../../common/service/actorService"
 import { DAY, nameKey, normalizePhone, personName, pick, sameId, sum, teacherPublic } from "../../common/service/helpers"
 import { centerNames, peopleRefs, refOf } from "../../common/service/lookups"
+import { placeWord } from "../../common/service/places"
 import { duplicateStudentError, findExistingStudent, nextStudentId } from "../../common/service/registry"
 import { runAsPlatform } from "../../common/service/tenantContext"
 import { withTransaction } from "../../db/connection"
@@ -408,16 +409,16 @@ class TeacherService {
     async centers(teacherId: string) {
         const links = await repos.centerLink.findall({
             filter: { teacher: teacherId, status: { $ne: "rejected" } },
-            populate: { path: "center", select: "name phone localphone textlocation Maplocation createdAt" },
+            populate: { path: "center", select: "name kind phone localphone textlocation Maplocation createdAt" },
         })
         return links.map((link) => this.linkView(link, link.center))
     }
 
     async requestCenter(teacherId: string, centerId: string) {
-        const center = await repos.center.findone({ filter: { _id: centerId, status: "active" }, select: "name phone localphone textlocation Maplocation createdAt" })
+        const center = await repos.center.findone({ filter: { _id: centerId, status: "active" }, select: "name kind phone localphone textlocation Maplocation createdAt" })
         if (!center) throw new NotFoundError("Center not found")
         const existing = await repos.centerLink.findone({ filter: { teacher: teacherId, center: centerId } })
-        if (existing?.status === "active") throw new ConflictError("You're already linked to this center")
+        if (existing?.status === "active") throw new ConflictError(`You're already linked to this ${placeWord(center.kind)}`)
         const status = existing?.status === "pending" && existing.requestedBy === "center" ? "active" : "pending"
         const requestedBy = status === "active" ? "center" : "teacher"
         const link = await repos.centerLink.findOneAndUpdate({
@@ -431,8 +432,8 @@ class TeacherService {
     async answerCenter(teacherId: string, centerId: string, status: string) {
         const link = await repos.centerLink.findone({ filter: { teacher: teacherId, center: centerId } })
         if (!link) throw new NotFoundError("Request not found")
-        if (link.requestedBy !== "center") throw new BadRequestError("Only the center can answer your request")
-        const updated = await repos.centerLink.findByIdAndUpdate({ id: link._id, data: { $set: { status } }, populate: { path: "center", select: "name phone localphone textlocation Maplocation createdAt" } })
+        if (link.requestedBy !== "center") throw new BadRequestError("Only the center or school can answer your request")
+        const updated = await repos.centerLink.findByIdAndUpdate({ id: link._id, data: { $set: { status } }, populate: { path: "center", select: "name kind phone localphone textlocation Maplocation createdAt" } })
         return this.linkView(updated, updated.center)
     }
 

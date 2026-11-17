@@ -4,6 +4,9 @@ import { icon } from "../../core/icons.js";
 import { weekGrid } from "../teacher/schedule.js";
 
 export default async function centerSchedule(ctx) {
+  const isSchool = ctx.me?.role === "school";
+  const word = isSchool ? "school" : "center";
+  const Word = isSchool ? "School" : "Center";
   const { root, api } = ctx;
   const slots = ((await api.center.schedule()) || []).filter((slot) => slot.isActive);
   const teachers = [...new Map(slots.map((slot) => [slot.teacher?._id, slot.teacher])).values()].filter(Boolean);
@@ -14,9 +17,9 @@ export default async function centerSchedule(ctx) {
     mount(
       root,
       html`${pageHeader({
-        eyebrow: "Center",
+        eyebrow: Word,
         title: "Weekly schedule",
-        text: "All groups that linked teachers hold at your center. Teachers manage their own groups; this view updates automatically.",
+        text: `All groups that linked teachers hold at your ${word}. Teachers manage their own groups; this view updates automatically.`,
         actions: html`<button class="btn btn-secondary" data-action="export">${icon("download")} Export</button>`,
       })}
       ${teachers.length > 1 ? html`<div class="toolbar"><select class="select-sm" id="teacher-filter" aria-label="Teacher"><option value="">All teachers</option>${teachers.map((teacher) => html`<option value="${teacher._id}" ${teacherFilter === String(teacher._id) ? html`selected` : ""}>${fullName(teacher)}</option>`)}</select></div>` : ""}
@@ -29,7 +32,7 @@ export default async function centerSchedule(ctx) {
     render();
   });
   on(root, "click", "[data-action=export]", () =>
-    downloadCSV("center-schedule", [
+    downloadCSV(`${word}-schedule`, [
       { label: "Day", value: (slot) => DAYS[slot.dayOfWeek] },
       { label: "Start", value: (slot) => slot.startTime },
       { label: "Minutes", value: (slot) => slot.durationMinutes },

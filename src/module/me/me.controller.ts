@@ -1,4 +1,6 @@
 import { Router } from "express"
+import QRCode from "qrcode"
+import { ForbiddenError } from "../../common/exceptions/error.exceptions"
 import { send } from "../../common/exceptions/successresponce"
 import { sameId, sum, teacherPublic } from "../../common/service/helpers"
 import { repos } from "../../db/repository"
@@ -9,10 +11,17 @@ const router: Router = Router()
 
 const accountRepo: Record<string, any> = {
     owner: repos.owner, teacher: repos.teacher, assistant: repos.assistant,
-    center: repos.center, student: repos.student, parent: repos.parent,
+    center: repos.center, school: repos.center, student: repos.student, parent: repos.parent,
 }
 
 router.use(auth, platformScope)
+
+// The student's door code as a QR image. The mobile app keeps it, so it still shows with no internet.
+router.get("/qr", send(async (req) => {
+    if (req.actor.role !== "student") throw new ForbiddenError("Only students have a door code")
+    const student = await repos.student.findById({ id: req.actor.id, select: "userID" })
+    return { userID: student.userID, qrCode: await QRCode.toDataURL(student.userID, { errorCorrectionLevel: "M", margin: 2, width: 480 }) }
+}))
 
 // Every account has a marketing id, whether or not it is ever used.
 router.get("/referral", send(async (req) => {

@@ -3,25 +3,25 @@ import { z } from "zod"
 import { BadRequestError, ConflictError, NotFoundError } from "../../common/exceptions/error.exceptions"
 import { roleEnum } from "../../common/enum/user.enum"
 import { send } from "../../common/exceptions/successresponce"
+import { kindOfRole, placeWord } from "../../common/service/places"
 import { centerPublic, DAY, inRangeFilter, normalizePhone, personName, sameId, sum, teacherPublic } from "../../common/service/helpers"
 import { validation } from "../../common/service/validation"
-import { params, text } from "../../common/service/zodTypes"
+import { params, text, safeUrl, safeName } from "../../common/service/zodTypes"
 import { repos } from "../../db/repository"
 import { activeCenter, auth, platformScope, requireRole } from "../../middleware/auth.middleware"
 import { closingTotals, slotViews } from "../shared/views"
 
-const router: Router = Router()
 const updateSchema = z.object({
-    name: text(120).optional(),
+    name: safeName(120, 2).optional(),
     phone: z.string().trim().min(6).max(32).optional(),
     localphone: text(32).optional(),
     textlocation: text(300).optional(),
-    Maplocation: text(1000).optional(),
+    Maplocation: safeUrl(1000).optional(),
 })
 const inviteSchema = z.object({ identifier: z.string().trim().min(1).max(254) })
 const answerSchema = z.object({ status: z.enum(["active", "rejected"]) })
 
-// A center sees counts and closings. It never receives student personal data.
+// A center or school sees counts and closings. It never receives student personal data.
 const teacherView = async (link: any) => {
     const [teacher, studentsCount, sessions, slots] = await Promise.all([
         repos.teacher.findById({ id: link.teacher }),
@@ -48,7 +48,12 @@ const linkOf = async (centerId: string, teacherId: string) => {
     return link
 }
 
-router.use(auth, requireRole(roleEnum.Center), platformScope, activeCenter)
+// One router per account type. A school works exactly like a center; only the wording differs.
+const placeRouter = (role: roleEnum.Center | roleEnum.School): Router => {
+const router: Router = Router()
+const word = placeWord(kindOfRole(role))
+
+router.use(auth, requireRole(role), platformScope, activeCenter)
 
 router.get("/profile", send(async (req) => {
     const center = await repos.center.findById({ id: req.actor.id })
@@ -71,7 +76,7 @@ router.post("/teachers/invite", validation(inviteSchema), send(async (req) => {
     if (!teacher) throw new NotFoundError("Teacher not found")
     const filter = { teacher: teacher._id, center: req.actor.id }
     const existing = await repos.centerLink.findone({ filter })
-    if (existing?.status === "active") throw new ConflictError("This teacher already works with your center")
+    if (existing?.status === "active") throw new ConflictError(`This teacher already works with your ${word}`)
     const answersTeacher = existing?.status === "pending" && existing.requestedBy === "teacher"
     const link = await repos.centerLink.findOneAndUpdate({
         filter,
@@ -137,4 +142,8 @@ router.get("/dashboard", send(async (req) => {
     }
 }))
 
-export default router
+return router
+}
+
+export const SchoolRouter = placeRouter(roleEnum.School)
+export default placeRouter(roleEnum.Center)

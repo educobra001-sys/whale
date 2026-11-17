@@ -25,7 +25,7 @@ const teacherRoutes = [
   { path: "/finance", feature: "finance", view: "teacher/finance", title: "Finance", perm: "finance", nav: { group: "Money", icon: "chart" } },
   { path: "/billing", view: "teacher/billing", title: "EduCobra plan", teacherOnly: true, nav: { group: "Money", icon: "award" } },
   { path: "/assistants", feature: "assistants", view: "teacher/assistants", title: "Assistants", teacherOnly: true, nav: { group: "Team", icon: "shield" } },
-  { path: "/centers", feature: "centers", view: "teacher/centers", title: "Learning centers", teacherOnly: true, nav: { group: "Team", icon: "building" } },
+  { path: "/centers", feature: "centers", view: "teacher/centers", title: "Centers & schools", teacherOnly: true, nav: { group: "Team", icon: "building" } },
   { path: "/referrals", view: "shared/referrals", title: "Marketing ID", teacherOnly: true, nav: { group: "Account", icon: "link" } },
   { path: "/account", view: "teacher/account", title: "Account", teacherOnly: true, nav: { group: "Account", icon: "settings" } },
 ];
@@ -36,17 +36,23 @@ const assistantOwnRoutes = [
   { path: "/account", view: "teacher/assistant-account", title: "My account", nav: { group: "Account", icon: "user" } },
 ];
 
+function placeRoutes(group) {
+  return [
+    { path: "/dashboard", view: "center/dashboard", title: "Dashboard", nav: { group: "Overview", icon: "grid" } },
+    { path: "/teachers", view: "center/teachers", title: "Teachers", nav: { group, icon: "users" } },
+    { path: "/schedule", view: "center/schedule", title: "Schedule", nav: { group, icon: "clock" } },
+    { path: "/sessions", view: "center/sessions", title: "Sessions & closings", nav: { group, icon: "calendar" } },
+    { path: "/referrals", view: "shared/referrals", title: "Marketing ID", nav: { group: "Account", icon: "link" } },
+    { path: "/account", view: "center/account", title: "Account", nav: { group: "Account", icon: "settings" } },
+  ];
+}
+
 export const ROUTES = {
   teacher: teacherRoutes,
   assistant: [...teacherRoutes.filter((route) => !route.teacherOnly), ...assistantOwnRoutes],
-  center: [
-    { path: "/dashboard", view: "center/dashboard", title: "Dashboard", nav: { group: "Overview", icon: "grid" } },
-    { path: "/teachers", view: "center/teachers", title: "Teachers", nav: { group: "Center", icon: "users" } },
-    { path: "/schedule", view: "center/schedule", title: "Schedule", nav: { group: "Center", icon: "clock" } },
-    { path: "/sessions", view: "center/sessions", title: "Sessions & closings", nav: { group: "Center", icon: "calendar" } },
-    { path: "/referrals", view: "shared/referrals", title: "Marketing ID", nav: { group: "Account", icon: "link" } },
-    { path: "/account", view: "center/account", title: "Account", nav: { group: "Account", icon: "settings" } },
-  ],
+  center: placeRoutes("Center"),
+  // Schools and organizations use the same screens as centers.
+  school: placeRoutes("School"),
   student: [
     { path: "/home", view: "student/home", title: "Home", nav: { group: "Overview", icon: "home" } },
     { path: "/teachers", view: "student/teachers", title: "Teachers", nav: { group: "Overview", icon: "users" } },
@@ -66,6 +72,7 @@ export const ROUTES = {
     { path: "/teachers", view: "owner/teachers", title: "Teachers", nav: { group: "Platform", icon: "users" } },
     { path: "/teachers/:id", view: "owner/teacher-detail", title: "Teacher" },
     { path: "/centers", view: "owner/centers", title: "Learning centers", nav: { group: "Platform", icon: "building" } },
+    { path: "/schools", view: "owner/schools", title: "Schools & organizations", nav: { group: "Platform", icon: "book" } },
     { path: "/plans", view: "owner/plans", title: "Plans & sections", nav: { group: "Money", icon: "award" } },
     { path: "/billing", view: "owner/billing", title: "Pricing & billing", nav: { group: "Money", icon: "wallet" } },
     { path: "/affiliates", view: "owner/affiliates", title: "Affiliates", nav: { group: "Money", icon: "link" } },

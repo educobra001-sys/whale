@@ -78,7 +78,7 @@ export function teacherCenters({ fresh = false } = {}) {
 
 export async function centerOptions() {
   const centers = await teacherCenters();
-  return centers.map((center) => ({ value: center._id, label: center.name }));
+  return centers.map((center) => ({ value: center._id, label: center.kind === "school" ? `${center.name} (school)` : center.name }));
 }
 
 export function studentOptions(students) {

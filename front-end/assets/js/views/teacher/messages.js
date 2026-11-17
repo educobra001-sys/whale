@@ -2,7 +2,7 @@ import { icon } from "../../core/icons.js";
 import { $, badge, dateTime, emptyState, html, mount, on, openDialog, pageHeader, table, tabs, toast, withBusy } from "../../core/ui.js";
 
 const TYPES = [{ value: "attendance", label: "Attendance" }, { value: "absence", label: "Absence" }];
-const STATUS_TONE = { sent: "success", simulated: "info", queued: "muted", failed: "danger", skipped: "muted" };
+const STATUS_TONE = { sent: "success", delivered: "success", read: "success", simulated: "info", queued: "muted", failed: "danger", skipped: "muted" };
 
 export default async function messages(ctx) {
   const { root, api, query, setQuery } = ctx;

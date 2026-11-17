@@ -95,6 +95,9 @@ const seed = () => runAsPlatform(async () => {
         permissions: ["dashboard", "students_view", "sessions_view", "scan_attendance", "scan_homework", "door_check", "follow_up", "messages"],
     })
     await repos.centerLink.create({ teacher: physics._id, center: center._id, status: "active", requestedBy: "center" })
+    const school = await repos.center.create({ kind: "school", name: "Cairo Language School", phone: "01011113333", password: await genertateHash({ plainText: "School@123" }), textlocation: "Heliopolis, Cairo", status: "active" })
+    await repos.centerLink.create({ teacher: physics._id, center: school._id, status: "active", requestedBy: "center" })
+    await repos.schedule.create({ teacher: physics._id, dayOfWeek: (new Date().getDay() + 1) % 7, startTime: "10:00", center: school._id, title: "School group", grade: "2" })
 
     const students = await makeStudents(studentPassword, 24)
     await seedTeacherData(physics, students, center)
@@ -113,6 +116,7 @@ Local accounts
   Teacher    khaled / Teacher@123 (waiting for your approval)
   Assistant  sara / Assistant@123
   Center     Nile Center / Center@123
+  School     Cairo Language School / School@123   login.html?role=school
   Student    ${firstStudent.userID} / Student@123
   Parent     ${firstStudent.parentPhone} / Parent@123
   Code       EC-TESTCODE01 (100 EGP with ahmed)`)

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get the EduCobra app</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/get-app.css">
+</head>
+<body>
+    <main class="get-app">
+        <a class="home-brand" href="index.html" aria-label="EduCobra home"><span class="brand-mark">EC</span><span>EduCobra</span></a>
+        <h1>Get the app</h1>
+        <p class="lead">One app for students, parents, teachers, assistants, learning centers and schools.</p>
+
+        <section class="step">
+            <span class="step-number">1</span>
+            <div>
+                <h2>Download and install (Android)</h2>
+                <p id="apk-state">Checking…</p>
+                <a id="apk-link" class="download-button" href="download/educobra.apk" hidden>Download EduCobra.apk</a>
+                <p class="hint">If Android asks, allow your browser to "install unknown apps". This is a test build that isn't on the Play Store yet.</p>
+            </div>
+        </section>
+
+        <section class="step">
+            <span class="step-number">2</span>
+            <div>
+                <h2>Connect the app to this server</h2>
+                <p>Open the app and tap <strong>Scan the QR code</strong>, or type this address:</p>
+                <p class="address" id="address"></p>
+                <img id="server-qr" class="server-qr" alt="QR code with the server address">
+                <p class="hint">Your phone must be on the same Wi-Fi as the computer running EduCobra.</p>
+            </div>
+        </section>
+
+        <section class="step">
+            <span class="step-number">3</span>
+            <div>
+                <h2>Sign in</h2>
+                <p>Use the same account as on the website. New students can create an account from the app.</p>
+                <a class="text-link" href="index.html">Or use the website on this phone →</a>
+            </div>
+        </section>
+    </main>
+    <script src="vendor/qrcode/qrcode.js"></script>
+    <script src="assets/js/get-app.js"></script>
+</body>
+</html>

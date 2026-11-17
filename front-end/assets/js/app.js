@@ -71,7 +71,7 @@ async function loadMe() {
     const profile = await api.owner.profile();
     return { role, id: profile._id, name: profile.name || profile.userName, person: profile };
   }
-  if (role === "center") {
+  if (role === "center" || role === "school") {
     const profile = await api.center.profile();
     return { role, id: profile._id, name: profile.name, person: profile };
   }
@@ -143,6 +143,7 @@ function roleSubtitle() {
   if (role === "assistant") return html`Assistant · ${fullName(me.teacher)}`;
   if (role === "teacher") return html`Teacher${me.person.subject?.length ? ` · ${me.person.subject.join(", ")}` : ""}`;
   if (role === "center") return "Learning center";
+  if (role === "school") return "School / organization";
   if (role === "student") return html`Student · ${me.person.userID || ""}`;
   if (role === "owner") return "Platform owner";
   return "Parent";

@@ -130,6 +130,14 @@ class StudentService {
                 })
                 : [],
             progress,
+            // Where to continue each part. A finished part, or a position past its length, starts from 0:
+            // seeking to the very end leaves some players on a black screen.
+            resume: Object.fromEntries(lesson.parts.map((part: any) => {
+                const seconds = Number(progress.find((row) => row.part === String(part._id))?.seconds) || 0
+                const length = Number(part.durationSeconds) || 0
+                const finished = length ? seconds >= length - 5 : seconds > 6 * 3600
+                return [String(part._id), finished || seconds < 5 ? 0 : Math.floor(seconds)]
+            })),
         }
     }
 

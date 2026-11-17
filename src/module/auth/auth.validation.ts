@@ -1,9 +1,10 @@
 import { z } from "zod"
+import { safeUrl, safeName } from "../../common/service/zodTypes"
 import { genders, grades, studyLanguages, subjects, teachingLanguages } from "../../common/enum/user.enum"
 
 const password = z.string().min(8, "Use at least 8 characters").max(128)
 const phone = z.string().trim().min(6).max(32)
-const name = z.string().trim().min(1).max(80)
+const name = safeName(80)
 
 export const teacherSignupSchema = z.object({
     firstName: name,
@@ -30,16 +31,16 @@ export const studentSignupSchema = z.object({
 })
 
 export const centerSignupSchema = z.object({
-    name: z.string().trim().min(2).max(120),
+    name: safeName(120, 2),
     phone,
     localphone: z.string().trim().max(32).optional(),
     textlocation: z.string().trim().max(300).optional(),
-    Maplocation: z.string().trim().max(1000).optional(),
+    Maplocation: safeUrl(1000).optional(),
     password,
 })
 
 export const parentSignupSchema = z.object({
-    name: z.string().trim().min(2).max(120),
+    name: safeName(120, 2),
     phone,
     childCode: z.string().trim().min(1).max(32),
     password,

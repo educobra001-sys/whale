@@ -7,6 +7,14 @@ import { repos } from "../../db/repository"
 import { studentSessionRows } from "../shared/reports"
 import { sessionLabel, sessionView, studentView } from "../shared/views"
 
+// Offline scans carry the time they happened. Never in the future, never more than a week back.
+const offlineTime = (value: unknown) => {
+    const at = value ? new Date(String(value)) : new Date()
+    const now = Date.now()
+    if (Number.isNaN(at.getTime()) || at.getTime() > now) return new Date()
+    return at.getTime() < now - 7 * 86_400_000 ? new Date(now - 7 * 86_400_000) : at
+}
+
 class SessionService {
     async findEnrolled(identifier: string) {
         const needle = String(identifier ?? "").trim()
@@ -88,10 +96,19 @@ class SessionService {
     }
 
     async markAttendance(teacherId: string, id: string, body: any, actorId: string) {
-        const session = await repos.session.findone({ filter: { _id: id, active: true } })
-        if (!session) throw new NotFoundError("Active session not found")
+        // A check-in a device accepted offline is honoured even if the session was closed since then:
+        // the student was let in and any cash was already collected, so the server records it as it happened.
+        const offline = Boolean(body.offline)
+        const session = await repos.session.findone({ filter: offline ? { _id: id, status: { $ne: "cancelled" } } : { _id: id, active: true } })
+        if (!session) throw new NotFoundError(offline ? "Session not found or cancelled" : "Active session not found")
         const { student, entry } = await this.findEnrolled(body.identifier)
-        if (entry.isBlocked && !body.force) {
+        const force = Boolean(body.force) || offline
+        const markedAt = offline ? offlineTime(body.scannedAt) : new Date()
+        if (offline) {
+            const note = `Recorded offline at ${markedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`
+            body.comment = body.comment ? `${body.comment} · ${note}` : note
+        }
+        if (entry.isBlocked && !force) {
             throw new ForbiddenError(`${personName(student)} is blocked. Unblock the student or force the check-in.`, { code: "BLOCKED" })
         }
         if (await repos.attendance.exists({ session: id, student: student._id })) throw new ConflictError("Student is already marked present")
@@ -101,13 +118,13 @@ class SessionService {
         const balance = await withTransaction(async () => {
             // The balance check is part of the update, so two simultaneous scans can't both spend the same money.
             const filter: any = { _id: entry._id }
-            if (!body.force && change < 0) filter.balance = { $gte: -change }
+            if (!force && change < 0) filter.balance = { $gte: -change }
             const updated = await repos.enrollment.findOneAndUpdate({ filter, data: { $inc: { balance: change } } })
             if (!updated) {
                 throw new ConflictError(`Not enough balance: ${entry.balance} available, ${price} needed.`, { code: "INSUFFICIENT_BALANCE", balance: entry.balance, price, payment })
             }
             await repos.attendance.create({
-                session: id, student: student._id, payment, charged: price,
+                session: id, student: student._id, payment, charged: price, markedAt,
                 comment: body.comment ?? "", homeworkStatus: body.homeworkStatus ?? null,
                 markedBy: actorId, location: entry.center ?? session.center,
             })

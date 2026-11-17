@@ -4,7 +4,7 @@ import { teacherCenters } from "../shared/common.js";
 
 function centerTile(center, footer) {
   return html`<article class="tile">
-    <div class="person"><span class="avatar avatar-md">${icon("building", 18)}</span><div><strong>${center.name}</strong><span>${center.textlocation || "No address"}</span></div></div>
+    <div class="person"><span class="avatar avatar-md">${icon(center.kind === "school" ? "book" : "building", 18)}</span><div><strong>${center.name}</strong> ${badge(center.kind === "school" ? "School" : "Center", center.kind === "school" ? "info" : "muted")}<span>${center.textlocation || "No address"}</span></div></div>
     <p>${center.phone ? html`📞 <a href="tel:${center.phone}">${center.phone}</a>` : ""}${center.localphone ? html` · ${center.localphone}` : ""}
       ${center.Maplocation ? html` · <a href="${center.Maplocation}" target="_blank" rel="noopener">Map ↗</a>` : ""}</p>
     <div class="tile-foot">${footer}</div>
@@ -21,7 +21,7 @@ export default async function centers(ctx) {
   }
 
   function searchResults() {
-    if (!results.length) return html`<p class="muted small">Type to search for a center by name or area.</p>`;
+    if (!results.length) return html`<p class="muted small">Type to search for a center or school by name or area.</p>`;
     return html`<div class="tile-grid">${results.map((center) => {
       const link = links.find((item) => String(item.center._id) === String(center._id));
       const footer = link
@@ -39,28 +39,28 @@ export default async function centers(ctx) {
       root,
       html`${pageHeader({
         eyebrow: "Team",
-        title: "Learning centers",
-        text: "Link the centers where you teach. Linked centers see your groups in their schedule and the closing of sessions held at their place — they never see your students' data.",
+        title: "Centers & schools",
+        text: "Link the learning centers, schools and organizations where you teach. They see your groups in their schedule and the closing of sessions held at their place — they never see your students' data.",
       })}
       ${invitations.length
-        ? html`<section class="card card-accent mb"><div class="card-head"><div><p class="eyebrow">Invitations</p><h3>Centers that invited you</h3></div></div>
+        ? html`<section class="card card-accent mb"><div class="card-head"><div><p class="eyebrow">Invitations</p><h3>Centers and schools that invited you</h3></div></div>
             <div class="tile-grid">${invitations.map((link) =>
               centerTile(link.center, html`<span class="muted small">${relative(link.createdAt)}</span><span class="row">
                 <button class="btn btn-sm btn-secondary" data-action="decline" data-id="${link.center._id}">Decline</button>
                 <button class="btn btn-sm btn-primary" data-action="accept" data-id="${link.center._id}">Accept</button></span>`),
             )}</div></section>`
         : ""}
-      <section class="mb"><h2 class="eyebrow" style="font-size:12px">Your centers</h2>
+      <section class="mb"><h2 class="eyebrow" style="font-size:12px">Your centers & schools</h2>
         ${active.length
           ? html`<div class="tile-grid">${active.map((link) => centerTile(link.center, html`${badge("Linked", "success")}<button class="btn btn-sm btn-ghost" data-action="leave" data-id="${link.center._id}">Leave</button>`))}</div>`
-          : html`<div class="card">${emptyState("No linked centers", "Search below and send a request, or ask the center to invite you by your username.")}</div>`}
+          : html`<div class="card">${emptyState("Nothing linked yet", "Search below and send a request, or ask the center or school to invite you by your username.")}</div>`}
       </section>
       ${sent.length
-        ? html`<section class="mb"><h2 class="eyebrow" style="font-size:12px">Waiting for the center</h2>
+        ? html`<section class="mb"><h2 class="eyebrow" style="font-size:12px">Waiting for an answer</h2>
             <div class="tile-grid">${sent.map((link) => centerTile(link.center, html`${badge("Pending", "warn")}<button class="btn btn-sm btn-ghost" data-action="leave" data-id="${link.center._id}">Cancel request</button>`))}</div></section>`
         : ""}
-      <section class="card"><div class="card-head"><div><p class="eyebrow">Directory</p><h3>Find a center</h3></div></div>
-        <label class="search mb">${icon("search", 16)}<input type="search" id="center-search" placeholder="Center name or area…" aria-label="Search centers"></label>
+      <section class="card"><div class="card-head"><div><p class="eyebrow">Directory</p><h3>Find a center or school</h3></div></div>
+        <label class="search mb">${icon("search", 16)}<input type="search" id="center-search" placeholder="Center or school name, or area…" aria-label="Search centers and schools"></label>
         <div id="center-results">${searchResults()}</div>
       </section>`,
     );
@@ -84,15 +84,15 @@ export default async function centers(ctx) {
     const action = button.dataset.action;
     if (action === "request") {
       if (!(await withBusy(button, () => api.teacher.requestCenter(id)))) return;
-      await reload("Request sent to the center.");
+      await reload("Request sent.");
       mount($("#center-results", root), searchResults());
     }
     if (action === "accept" || action === "decline") {
       if (!(await withBusy(button, () => api.teacher.answerCenter(id, action === "accept" ? "active" : "rejected")))) return;
-      await reload(action === "accept" ? "You're now linked to this center." : "Invitation declined.");
+      await reload(action === "accept" ? "You're now linked." : "Invitation declined.");
     }
     if (action === "leave") {
-      if (!(await confirmDialog("Unlink from this center? Your groups disappear from their schedule.", { danger: true, confirmLabel: "Unlink" }))) return;
+      if (!(await confirmDialog("Unlink? Your groups disappear from their schedule.", { danger: true, confirmLabel: "Unlink" }))) return;
       if (!(await withBusy(button, () => api.teacher.leaveCenter(id)))) return;
       await reload("Unlinked.");
     }

@@ -3,6 +3,7 @@ export enum roleEnum {
     Teacher = "teacher",
     Assistant = "assistant",
     Center = "center",
+    School = "school",
     Student = "student",
     Parent = "parent",
 }

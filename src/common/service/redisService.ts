@@ -59,6 +59,10 @@ export class RedisService {
         return count
     }
 
+    async ttl(key: string) {
+        return await this.client.ttl(key)
+    }
+
     async publish(channel: string, message: string) {
         await this.client.publish(channel, message)
     }

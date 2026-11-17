@@ -5,7 +5,7 @@ import { send } from "../../common/exceptions/successresponce"
 import { DAY, pick } from "../../common/service/helpers"
 import { missingStudent, peopleRefs, refOf, studentRefs } from "../../common/service/lookups"
 import { validation } from "../../common/service/validation"
-import { dateText, params, text } from "../../common/service/zodTypes"
+import { dateText, params, text, safeUrl } from "../../common/service/zodTypes"
 import { repos } from "../../db/repository"
 import { can, requireFeature } from "../../middleware/auth.middleware"
 
@@ -18,7 +18,7 @@ const homeworkSchema = z.object({
     startDate: dateText,
     endDate: dateText,
     submissionType: text(20).optional(),
-    externalLink: text(2048).optional(),
+    externalLink: safeUrl().optional(),
     grade: z.string().max(4).optional(),
 })
 const gradeSchema = z.object({ status: z.enum(["complete", "incomplete", "no_steps", "not_done", "submitted"]).optional(), feedback: text(2000).optional() })

@@ -22,6 +22,9 @@ export const markAttendanceSchema = z.object({
     comment: text(500).optional(),
     homeworkStatus: homeworkStatus.nullable().optional(),
     force: z.boolean().optional(),
+    // Sent by devices replaying check-ins they accepted while offline.
+    offline: z.boolean().optional(),
+    scannedAt: dateText.optional(),
 })
 
 export const updateAttendanceSchema = z.object({

@@ -1,4 +1,5 @@
 import { NotFoundError } from "../../common/exceptions/error.exceptions"
+import { kindFilter } from "../../common/service/places"
 import { centerPublic, escapeRegex, sameId, teacherPublic } from "../../common/service/helpers"
 import { redisService } from "../../common/service/redisService"
 import { repos } from "../../db/repository"
@@ -73,6 +74,7 @@ class DirectoryService {
     async searchCenters(query: any) {
         const needle = String(query.q ?? "").trim().slice(0, 60)
         const filter: any = { status: "active" }
+        if (query.kind === "school" || query.kind === "center") Object.assign(filter, kindFilter(query.kind))
         if (needle) {
             const pattern = new RegExp(escapeRegex(needle), "i")
             filter.$or = [{ name: pattern }, { textlocation: pattern }]

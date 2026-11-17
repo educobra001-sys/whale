@@ -5,7 +5,7 @@ import { roleEnum } from "../../common/enum/user.enum"
 import { send } from "../../common/exceptions/successresponce"
 import { runAsPlatform, runWithTeacher } from "../../common/service/tenantContext"
 import { validation } from "../../common/service/validation"
-import { money, params, text } from "../../common/service/zodTypes"
+import { money, params, text, safeUrl, requiredUrl, safeName } from "../../common/service/zodTypes"
 import { repos } from "../../db/repository"
 import { auth, platformScope, requireRole } from "../../middleware/auth.middleware"
 import { rateLimit } from "../../middleware/security.middleware"
@@ -13,18 +13,18 @@ import studentService from "./student.service"
 
 const router: Router = Router()
 const profileSchema = z.object({
-    firstName: text(80).optional(),
-    lastName: text(80).optional(),
+    firstName: safeName(80).optional(),
+    lastName: safeName(80).optional(),
     parentPhone: text(32).optional(),
     schoolName: text(160).optional(),
-    profilepic: text(2048).optional(),
+    profilepic: safeUrl().optional(),
     gender: z.enum(["male", "female"]).optional(),
 })
 const progressSchema = z.object({ start: z.boolean().optional(), part: text(40).optional(), seconds: z.coerce.number().min(0).optional() })
-const answerSchema = z.object({ choice: text(500).optional(), imageUrl: text(2048).optional(), text: text(4000).optional() })
-const submitSchema = z.object({ files: z.array(text(2048)).max(20).optional(), comment: text(2000).optional(), link: text(2048).optional() })
-const reserveSchema = z.object({ method: z.enum(["center", "transfer"]).optional(), receiptUrl: text(2048).optional(), reference: text(120).optional() })
-const topupSchema = z.object({ amount: money.refine((value) => value > 0, "Enter a positive amount"), method: text(60).optional(), reference: text(120).optional(), receiptUrl: z.string().trim().min(1).max(2048) })
+const answerSchema = z.object({ choice: text(500).optional(), imageUrl: safeUrl().optional(), text: text(4000).optional() })
+const submitSchema = z.object({ files: z.array(requiredUrl()).max(20).optional(), comment: text(2000).optional(), link: safeUrl().optional() })
+const reserveSchema = z.object({ method: z.enum(["center", "transfer"]).optional(), receiptUrl: safeUrl().optional(), reference: text(120).optional() })
+const topupSchema = z.object({ amount: money.refine((value) => value > 0, "Enter a positive amount"), method: text(60).optional(), reference: text(120).optional(), receiptUrl: requiredUrl() })
 const rechargeSchema = z.object({ code: z.string().trim().min(1).max(40) })
 
 const activeEntry = async (teacherId: unknown, studentId: string) => {

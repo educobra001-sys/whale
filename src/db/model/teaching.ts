@@ -351,9 +351,14 @@ const messageItemSchema = new Schema({
     to: String,
     body: String,
     channel: String,
-    status: { type: String, enum: ["queued", "sent", "simulated", "failed", "skipped"], default: "queued" },
+    status: { type: String, enum: ["queued", "sent", "delivered", "read", "simulated", "failed", "skipped"], default: "queued" },
     error: String,
     sentAt: Date,
+    // WhatsApp Cloud API: Meta's id for the sent message, matched by the delivery webhook.
+    waMessageId: String,
+    deliveredAt: Date,
+    readAt: Date,
 })
 messageItemSchema.index({ teacher: 1, batch: 1 })
+messageItemSchema.index({ waMessageId: 1 }, { sparse: true })
 export const messageItemModel = tenantModel("MessageItem", messageItemSchema)

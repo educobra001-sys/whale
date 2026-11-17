@@ -15,12 +15,14 @@ export default async function ownerDashboard(ctx) {
     })}
     ${counts.pendingTeachers ? html`<div class="notice mb row-between"><span><strong>${counts.pendingTeachers}</strong> teacher${counts.pendingTeachers > 1 ? "s" : ""} waiting for your approval.</span><a class="btn btn-sm btn-primary" href="#/teachers?status=pending_approval">Review</a></div>` : ""}
     ${counts.pendingCenters ? html`<div class="notice mb row-between"><span><strong>${counts.pendingCenters}</strong> center${counts.pendingCenters > 1 ? "s" : ""} waiting for your approval.</span><a class="btn btn-sm btn-primary" href="#/centers">Review</a></div>` : ""}
+    ${counts.pendingSchools ? html`<div class="notice mb row-between"><span><strong>${counts.pendingSchools}</strong> school${counts.pendingSchools > 1 ? "s" : ""} or organization${counts.pendingSchools > 1 ? "s" : ""} waiting for your approval.</span><a class="btn btn-sm btn-primary" href="#/schools">Review</a></div>` : ""}
     ${counts.pendingAds ? html`<div class="notice mb row-between"><span><strong>${counts.pendingAds}</strong> ad${counts.pendingAds > 1 ? "s" : ""} asking to appear outside their course.</span><a class="btn btn-sm btn-primary" href="#/ads">Review</a></div>` : ""}
     <section class="stats">
       ${statTile("Active teachers", counts.teachers, { icon: icon("users", 15), hint: `${counts.pendingEmail} verifying email` })}
       ${statTile("Students", counts.students, { icon: icon("user", 15), hint: `${counts.enrollments} enrollments` })}
       ${statTile("Active this month", counts.activeStudents, { icon: icon("check", 15) })}
       ${statTile("Centers", counts.centers, { icon: icon("building", 15) })}
+      ${statTile("Schools", counts.schools ?? 0, { icon: icon("book", 15) })}
       ${statTile("Expected this month", money(data.estimate), { tone: "accent", icon: icon("chart", 15) })}
       ${statTile("Affiliates due", money(data.affiliatesDue), { icon: icon("link", 15) })}
     </section>

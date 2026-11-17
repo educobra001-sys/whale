@@ -58,6 +58,13 @@ router.post("/schedule/:id/start", can("sessions_manage", "schedule"), validatio
     const slot = await ownSlot(id(req))
     const latest = await repos.session.findone({ filter: {}, sort: { date: -1 } })
     const session = await withTransaction(async () => {
+        // A double tap, a refresh or a retried request must not start a second session for the same group.
+        // Checked inside the transaction: two simultaneous starts collide on the active-session index,
+        // and the retried one then finds the session the first one made.
+        const recent = await repos.session.findone({
+            filter: { active: true, center: slot.center, grade: slot.grade, createdAt: { $gte: new Date(Date.now() - 2 * 60_000) } },
+        })
+        if (recent) return recent
         await repos.session.updateMany({ filter: { active: true }, data: { $set: { active: false } } })
         return repos.session.create({
             sequence: req.body.sequence || slot.title,
@@ -69,7 +76,7 @@ router.post("/schedule/:id/start", can("sessions_manage", "schedule"), validatio
             active: true,
         })
     })
-    return sessionView(session.toObject())
+    return sessionView(typeof session.toObject === "function" ? session.toObject() : session)
 }, "Session started", 201))
 
 export default router

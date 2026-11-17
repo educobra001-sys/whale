@@ -115,6 +115,14 @@ export default async function lessonPlayer(ctx) {
     const video = $("#lesson-video", root);
     if (!video) return;
     let lastSaved = 0;
+    // Continue where the student stopped, but only to a point inside the video.
+    const resumeAt = Number(lesson.resume?.[part()._id]) || 0;
+    video.addEventListener("loadedmetadata", () => {
+      if (resumeAt > 0 && Number.isFinite(video.duration) && resumeAt < video.duration - 5) {
+        video.currentTime = resumeAt;
+        lastSaved = resumeAt;
+      }
+    }, { once: true });
     video.addEventListener("timeupdate", () => {
       const seconds = Math.floor(video.currentTime);
       const due = questionsFor(part()._id).find((question) => question.trigger === "time" && !question.answer && !shownQuestions.has(question._id) && seconds >= question.triggerSeconds);

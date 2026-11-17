@@ -3,7 +3,7 @@ import { z } from "zod"
 import { send } from "../../common/exceptions/successresponce"
 import { normalizePhone, sum, teacherPublic } from "../../common/service/helpers"
 import { validation } from "../../common/service/validation"
-import { text } from "../../common/service/zodTypes"
+import { text, safeUrl } from "../../common/service/zodTypes"
 import { repos } from "../../db/repository"
 import { auth, requireRole, teacherScope } from "../../middleware/auth.middleware"
 import { roleEnum } from "../../common/enum/user.enum"
@@ -14,7 +14,7 @@ const updateSchema = z.object({
     firstName: text(80).optional(),
     lastName: text(80).optional(),
     phone: z.string().trim().min(6).max(32).optional(),
-    profilepic: text(2048).optional(),
+    profilepic: safeUrl().optional(),
 })
 
 const profile = async (req: any) => {

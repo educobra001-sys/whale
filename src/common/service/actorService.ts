@@ -16,7 +16,7 @@ export interface Actor {
 
 const repoFor: Record<string, any> = {
     owner: repos.owner, teacher: repos.teacher, assistant: repos.assistant,
-    center: repos.center, student: repos.student, parent: repos.parent,
+    center: repos.center, school: repos.center, student: repos.student, parent: repos.parent,
 }
 
 const load = (role: roleEnum, id: string) => runAsPlatform(async (): Promise<Actor | null> => {
@@ -28,7 +28,11 @@ const load = (role: roleEnum, id: string) => runAsPlatform(async (): Promise<Act
         actor.teacherId = id
         actor.features = account.features
     }
-    if (role === roleEnum.Center) actor.status = account.status
+    if (role === roleEnum.Center || role === roleEnum.School) {
+        // A school token can't open a center account and the other way round.
+        if ((account.kind === "school") !== (role === roleEnum.School)) return null
+        actor.status = account.status
+    }
     if (role === roleEnum.Assistant) {
         const teacher = await repos.teacher.findById({ id: account.teacher, select: "status features" })
         actor.status = teacher?.status

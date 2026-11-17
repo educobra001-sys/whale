@@ -23,6 +23,31 @@ if (useCloudinary) {
     cloudinary.config({ cloud_name: env.cloudinaryCloud, api_key: env.cloudinaryKey, api_secret: env.cloudinarySecret, secure: true })
 }
 
+// The browser decides the content type it reports, so the first bytes of the file are checked too.
+// A script renamed to photo.png is refused here and deleted before anything can serve it.
+const SIGNATURES: Record<string, (head: Buffer) => boolean> = {
+    "image/jpeg": (head) => head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff,
+    "image/png": (head) => head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    "image/webp": (head) => head.toString("latin1", 0, 4) === "RIFF" && head.toString("latin1", 8, 12) === "WEBP",
+    "image/gif": (head) => head.toString("latin1", 0, 4) === "GIF8",
+    "application/pdf": (head) => head.toString("latin1", 0, 5) === "%PDF-",
+    "video/mp4": (head) => head.toString("latin1", 4, 8) === "ftyp",
+}
+
+export const verifyUpload = async (file: Express.Multer.File) => {
+    const handle = await fs.promises.open(file.path, "r")
+    const head = Buffer.alloc(16)
+    try {
+        await handle.read(head, 0, 16, 0)
+    } finally {
+        await handle.close()
+    }
+    if (!SIGNATURES[file.mimetype]?.(head)) {
+        await fs.promises.rm(file.path, { force: true })
+        throw new BadRequestError("This file isn't a real image, PDF or MP4 video")
+    }
+}
+
 // Moves a finished upload to Cloudinary when it's configured, otherwise keeps it in the local folder.
 export const storeUpload = async (file: Express.Multer.File) => {
     if (!useCloudinary) return `/files/${file.filename}`

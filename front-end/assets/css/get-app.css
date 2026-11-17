@@ -1,0 +1,71 @@
+.get-app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 16px 48px;
+  color: #2f2b25;
+}
+.get-app h1 {
+  font-size: 34px;
+  margin: 26px 0 6px;
+}
+.get-app .lead {
+  color: #777166;
+  margin: 0 0 24px;
+}
+.get-app .step {
+  display: flex;
+  gap: 14px;
+  background: #fffefa;
+  border: 1px solid #efe4cf;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.get-app .step h2 {
+  font-size: 18px;
+  margin: 2px 0 8px;
+}
+.get-app .step p {
+  margin: 0 0 10px;
+}
+.get-app .step-number {
+  flex: 0 0 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffb43f;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+.get-app .download-button {
+  display: inline-block;
+  background: #ffb43f;
+  color: #2f2b25;
+  font-weight: 800;
+  text-decoration: none;
+  padding: 13px 22px;
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+.get-app .download-button[hidden] {
+  display: none;
+}
+.get-app .address {
+  font: 700 20px/1.3 ui-monospace, Consolas, monospace;
+  word-break: break-all;
+}
+.get-app .server-qr {
+  width: 200px;
+  height: 200px;
+  image-rendering: pixelated;
+  border-radius: 12px;
+  background: #fff;
+}
+.get-app .hint {
+  color: #777166;
+  font-size: 13px;
+}
+.get-app .text-link {
+  color: #a56e1c;
+  font-weight: 700;
+}

@@ -11,3 +11,14 @@ export const params = (value: unknown, label = "record") => {
     if (typeof value !== "string" || !/^[a-f\d]{24}$/i.test(value)) throw Object.assign(new Error(`Invalid ${label} id`), { status: 400 })
     return value
 }
+
+// Links end up in href and src attributes. Escaping can't stop "javascript:" there, so only web links
+// and our own uploaded files are accepted. Spaces are allowed because some storage folders contain them.
+const SAFE_URL = /^(https?:\/\/[^\s"'<>`\\]+|\/files\/[\w.-]+)$/i
+export const isSafeUrl = (value: string) => SAFE_URL.test(value.replace(/ /g, "%20"))
+export const safeUrl = (max = 2048) => z.string().trim().max(max).refine((value) => value === "" || isSafeUrl(value), "Use a link that starts with https://")
+export const requiredUrl = (max = 2048) => z.string().trim().min(1).max(max).refine(isSafeUrl, "Use a link that starts with https://")
+
+// Names are shown to other people (leaderboards, messages, centers). HTML and control characters are refused.
+export const UNSAFE_NAME = /[<>`\\\u0000-\u001f\u007f]/
+export const safeName = (max = 80, min = 1) => z.string().trim().min(min).max(max).refine((value) => !UNSAFE_NAME.test(value), "This name contains characters that aren't allowed")

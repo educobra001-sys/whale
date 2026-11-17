@@ -278,10 +278,12 @@ export default async function scan(ctx) {
     const remaining = [];
     for (const item of queue) {
       try {
-        await api.teacher.markAttendance(item.sessionId, { ...item.body, force: true });
+        // The server records it as it happened offline, at the scan time, even if the session closed since.
+        await api.teacher.markAttendance(item.sessionId, { ...item.body, offline: true, scannedAt: item.at });
         record(item.name, "Synced", "success");
       } catch (error) {
         if (error.status === 0) remaining.push(item);
+        else if (error.status === 409 && /already marked/i.test(error.message)) record(item.name, "Synced", "success");
         else record(item.name, error.message.slice(0, 40), "danger");
       }
     }

@@ -49,8 +49,33 @@ export const env = {
     cloudinaryFolder: read("CLOUDINARY_FOLDER", "educobra"),
     telegramToken: read("TELEGRAM_BOT_TOKEN"),
     telegramBotUsername: read("TELEGRAM_BOT_USERNAME"),
+    // WhatsApp Cloud API webhook: the verify token you type in Meta's dashboard, and the app secret Meta signs with.
+    whatsappVerifyToken: read("WHATSAPP_VERIFY_TOKEN"),
+    whatsappAppSecret: read("WHATSAPP_APP_SECRET"),
+    backupDir: read("BACKUP_DIR", "backups"),
+    backupKeep: number("BACKUP_KEEP", 14),
+    backupDaily: read("BACKUP_DAILY", "false") === "true",
 }
 
-if (!env.isDev && (env.access_secret.length < 32 || env.refresh_secret.length < 32)) {
-    throw new Error("ACCESS_SECRET and REFRESH_SECRET must be long random values in production")
+const PLACEHOLDERS = /^(change-me.*|secret|password|123456.*|)$/i
+
+// Settings that are unsafe to run with. In production the dangerous ones stop the server from starting.
+export const envProblems = () => {
+    const fatal: string[] = []
+    const warn: string[] = []
+    const weakSecret = (value: string) => value.length < 32 || PLACEHOLDERS.test(value)
+    if (weakSecret(env.access_secret) || weakSecret(env.refresh_secret)) {
+        (env.isDev ? warn : fatal).push("ACCESS_SECRET and REFRESH_SECRET must be long random values")
+    }
+    if (env.access_secret && env.access_secret === env.refresh_secret) (env.isDev ? warn : fatal).push("ACCESS_SECRET and REFRESH_SECRET must be different")
+    if (env.ownerPassword && (env.ownerPassword.length < 10 || PLACEHOLDERS.test(env.ownerPassword))) {
+        (env.isDev ? warn : fatal).push("OWNER_PASSWORD is a placeholder or shorter than 10 characters")
+    }
+    if (!env.isDev && env.testMode) warn.push("TEST_MODE is on: verification codes are shown on screen")
+    if (!env.isDev && env.whatsappVerifyToken && !env.whatsappAppSecret) warn.push("WHATSAPP_APP_SECRET is empty: WhatsApp webhook calls will be refused")
+    if (!env.isDev && !env.corsOrigins.length) warn.push("CORS_ORIGINS is empty: browsers on other sites can't use the API")
+    return { fatal, warn }
 }
+
+const startup = envProblems()
+if (startup.fatal.length) throw new Error(`Unsafe settings in .env:\n- ${startup.fatal.join("\n- ")}`)

@@ -2,6 +2,7 @@ import { BadRequestError, ConflictError, NotFoundError } from "../../common/exce
 import { genertateHash } from "../../common/security/security"
 import { forgetActor, forgetTeacherTeam } from "../../common/service/actorService"
 import { monthKey, normalizePhone, personName, pick, sameId, sum, teacherPublic } from "../../common/service/helpers"
+import { kindFilter } from "../../common/service/places"
 import { getMessagingSettings, saveMessagingSettings } from "../../common/service/settings"
 import { repos } from "../../db/repository"
 import billingService from "../billing/billing.service"
@@ -22,7 +23,7 @@ class OwnerService {
         const month = monthKey()
         const [teachers, centers, students, enrollments, pendingAds, activeRows, invoices, earnings] = await Promise.all([
             repos.teacher.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-            repos.center.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+            repos.center.aggregate([{ $group: { _id: { status: "$status", school: { $eq: ["$kind", "school"] } }, count: { $sum: 1 } } }]),
             repos.student.count({}),
             repos.enrollment.count({ status: "active", archived: false }),
             repos.announcement.count({ platformStatus: "pending" }),
@@ -31,6 +32,7 @@ class OwnerService {
             repos.affiliateEarning.findall({ filter: { status: "due" }, select: "amount" }),
         ])
         const countOf = (rows: any[], key: string) => rows.find((row) => row._id === key)?.count ?? 0
+        const placeCount = (rows: any[], status: string, school: boolean) => rows.find((row) => row._id.status === status && row._id.school === school)?.count ?? 0
         const list = await this.teachers({})
         return {
             month,
@@ -38,8 +40,10 @@ class OwnerService {
                 teachers: countOf(teachers, "active"),
                 pendingTeachers: countOf(teachers, "pending_approval"),
                 pendingEmail: countOf(teachers, "pending_email"),
-                centers: countOf(centers, "active"),
-                pendingCenters: countOf(centers, "pending_approval"),
+                centers: placeCount(centers, "active", false),
+                pendingCenters: placeCount(centers, "pending_approval", false),
+                schools: placeCount(centers, "active", true),
+                pendingSchools: placeCount(centers, "pending_approval", true),
                 students,
                 enrollments,
                 activeStudents: activeRows[0]?.count ?? 0,
@@ -167,23 +171,26 @@ class OwnerService {
     async centers(query: any) {
         const filter: any = {}
         if (query.status) filter.status = String(query.status)
+        if (query.kind === "school" || query.kind === "center") Object.assign(filter, kindFilter(query.kind))
         const centers = await repos.center.findall({ filter, sort: { createdAt: -1 }, limit: 500 })
         const links = await repos.centerLink.aggregate([
             { $match: { status: "active" } },
             { $group: { _id: "$center", count: { $sum: 1 } } },
         ])
         return centers.map((center) => ({
-            ...pick(center, ["_id", "name", "phone", "localphone", "textlocation", "status", "statusNote", "referralId", "createdAt"]),
+            ...pick(center, ["_id", "name", "kind", "phone", "localphone", "textlocation", "status", "statusNote", "referralId", "createdAt"]),
+            kind: center.kind ?? "center",
             teachers: links.find((row) => sameId(row._id, center._id))?.count ?? 0,
         }))
     }
 
     async createCenter(actor: any, data: any) {
         const phone = normalizePhone(data.phone)
-        if (await repos.center.exists({ $or: [{ phone }, { name: data.name }] })) throw new ConflictError("A center with this name or phone exists")
-        const center = await repos.center.create({ ...data, phone, password: await genertateHash({ plainText: data.password }), status: "active" })
-        await this.audit(actor, "center.create", String(center._id))
-        return pick(center.toObject(), ["_id", "name", "phone", "status", "referralId"])
+        const kind = data.kind === "school" ? "school" : "center"
+        if (await repos.center.exists({ $or: [{ phone }, { name: data.name }] })) throw new ConflictError(`A center or school with this name or phone exists`)
+        const center = await repos.center.create({ ...data, kind, phone, password: await genertateHash({ plainText: data.password }), status: "active" })
+        await this.audit(actor, `${kind}.create`, String(center._id))
+        return pick(center.toObject(), ["_id", "name", "kind", "phone", "status", "referralId"])
     }
 
     async setCenterStatus(actor: any, id: string, { status, note }: any) {
@@ -192,9 +199,10 @@ class OwnerService {
             data: { $set: { status, statusNote: note ?? "" }, ...(status === "suspended" ? { $inc: { tokenVersion: 1 } } : {}) },
         })
         if (!center) throw new NotFoundError("Center not found")
-        await forgetActor("center", id)
-        await this.audit(actor, `center.${status}`, id, { note })
-        return pick(center, ["_id", "name", "status"])
+        const kind = center.kind === "school" ? "school" : "center"
+        await forgetActor(kind, id)
+        await this.audit(actor, `${kind}.${status}`, id, { note })
+        return pick(center, ["_id", "name", "kind", "status"])
     }
 
     async billing(query: any) {

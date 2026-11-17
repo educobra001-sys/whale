@@ -17,7 +17,7 @@ const roleParam = (req: any) => {
 }
 
 const signupLimit = rateLimit({ name: "signup", windowSeconds: 3600, max: 120 })
-// Students of a whole center can share one address; guessing one account is stopped by the account lockout.
+// Students of a whole center can share one address; guessing one account is stopped by the per-account limiter.
 const loginLimit = rateLimit({ name: "login", windowSeconds: 300, max: 600 })
 const otpLimit = rateLimit({ name: "otp", windowSeconds: 600, max: 15 })
 
@@ -25,10 +25,11 @@ router.use(platformScope)
 
 router.post("/signup/teacher", signupLimit, validation(schema.teacherSignupSchema), send((req) => authService.teacherSignup(req.body), "Account created", 201))
 router.post("/signup/student", signupLimit, validation(schema.studentSignupSchema), send((req) => authService.studentSignup(req.body), "Account created", 201))
-router.post("/signup/center", signupLimit, validation(schema.centerSignupSchema), send((req) => authService.centerSignup(req.body), "Account created", 201))
+router.post("/signup/center", signupLimit, validation(schema.centerSignupSchema), send((req) => authService.placeSignup(req.body, "center"), "Account created", 201))
+router.post("/signup/school", signupLimit, validation(schema.centerSignupSchema), send((req) => authService.placeSignup(req.body, "school"), "Account created", 201))
 router.post("/signup/parent", signupLimit, validation(schema.parentSignupSchema), send((req) => authService.parentSignup(req.body), "Account created", 201))
 
-router.post("/login/:role", loginLimit, validation(schema.loginSchema), send((req) => authService.login(roleParam(req), req.body), "Signed in"))
+router.post("/login/:role", loginLimit, validation(schema.loginSchema), send((req) => authService.login(roleParam(req), req.body, req.ip), "Signed in"))
 router.post("/refresh-token", loginLimit, validation(schema.refreshTokenSchema), send((req) => authService.refreshToken(req.body.refreshToken), "Token refreshed"))
 
 router.post("/verify-acc", otpLimit, validation(schema.verifySchema), send((req) => authService.teacherVerify(req.body), "Email verified"))

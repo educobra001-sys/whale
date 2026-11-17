@@ -83,7 +83,7 @@ test("every account has a marketing id and center signup waits for approval", as
 
 test("wrong passwords lock the account for a while", async () => {
     const teacher = await makeTeacher(owner)
-    for (let index = 0; index < 8; index += 1) {
+    for (let index = 0; index < 10; index += 1) {
         assert.equal((await call("POST", "/login/teacher", null, { identifier: teacher.email, password: "wrong-password" })).status, 401)
     }
     assert.equal((await call("POST", "/login/teacher", null, { identifier: teacher.email, password: "Teacher@123" })).status, 429)

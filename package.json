@@ -17,7 +17,9 @@
     "public:stop": "node scripts/public.js stop",
     "seed": "node ./dist/scripts/seed.js",
     "owner:create": "node ./dist/scripts/createOwner.js",
-    "test": "tsc && node --test --test-concurrency=1 \"dist/test/**/*.test.js\""
+    "test": "tsc && node --test --test-concurrency=1 \"dist/test/**/*.test.js\"",
+    "backup": "node ./dist/scripts/backup.js",
+    "restore": "node ./dist/scripts/restore.js"
   },
   "license": "UNLICENSED",
   "dependencies": {

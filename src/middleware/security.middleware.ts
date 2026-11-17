@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express"
 import { BadRequestError, TooManyRequestsError } from "../common/exceptions/error.exceptions"
-import { redisService } from "../common/service/redisService"
+import { hitCounter } from "../common/security/counter"
 import { env } from "../config/env.service"
 
 const hasOperatorKey = (value: any, depth = 0): boolean => {
@@ -22,17 +22,12 @@ interface LimitOptions {
     key?: (req: any) => string
 }
 
-// Redis-backed, so the limit holds across every API process. Stays open if Redis is briefly unavailable.
+// Redis-backed, so the limit holds across every API process. Falls back to per-process memory if Redis is down.
 export const rateLimit = ({ name, windowSeconds, max, key }: LimitOptions) => {
     return async (req: any, res: Response, next: NextFunction) => {
-        if (env.rateLimitOff || !redisService.ready) return next()
+        if (env.rateLimitOff) return next()
         const id = key?.(req) ?? req.user?.id ?? req.ip
-        let count = 0
-        try {
-            count = await redisService.hit(`rl:${name}:${id}`, windowSeconds)
-        } catch {
-            return next()
-        }
+        const count = await hitCounter(`rl:${name}:${id}`, windowSeconds)
         if (count > max) {
             res.setHeader("Retry-After", windowSeconds)
             throw new TooManyRequestsError()

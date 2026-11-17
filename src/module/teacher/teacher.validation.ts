@@ -1,13 +1,13 @@
 import { z } from "zod"
 import { genders, grades, studyLanguages, subjects, teachingLanguages } from "../../common/enum/user.enum"
-import { money, objectId, optionalId, signedMoney, text } from "../../common/service/zodTypes"
+import { money, objectId, optionalId, signedMoney, text, safeUrl, safeName } from "../../common/service/zodTypes"
 
 const phone = z.string().trim().min(6).max(32)
 
 export const updateProfileSchema = z.object({
-    firstName: text(80).optional(),
-    lastName: text(80).optional(),
-    profilepic: text(2048).optional(),
+    firstName: safeName(80).optional(),
+    lastName: safeName(80).optional(),
+    profilepic: safeUrl().optional(),
     gender: z.enum(genders).optional(),
     companyName: text(120).optional(),
     subject: z.array(z.enum(subjects)).optional(),
@@ -18,15 +18,15 @@ export const updateProfileSchema = z.object({
 })
 
 const studentFields = {
-    firstName: text(80).optional(),
-    lastName: text(80).optional(),
+    firstName: safeName(80).optional(),
+    lastName: safeName(80).optional(),
     phone: phone.optional(),
     parentPhone: z.union([phone, z.literal("")]).optional(),
     gender: z.enum(genders).optional(),
     grade: z.union([z.enum(grades), z.literal("")]).optional(),
     schoolName: text(160).optional(),
     learningLanguage: z.union([z.enum(studyLanguages), z.literal("")]).optional(),
-    profilepic: text(2048).optional(),
+    profilepic: safeUrl().optional(),
 }
 
 export const updateStudentSchema = z.object({
@@ -39,7 +39,7 @@ export const updateStudentSchema = z.object({
 
 export const createStudentSchema = z.object({
     ...studentFields,
-    firstName: z.string().trim().min(1).max(80),
+    firstName: safeName(80),
     phone,
     pricePerSession: z.union([money, z.null()]).optional(),
     center: optionalId,
@@ -61,8 +61,8 @@ export const blockSchema = z.object({ blocked: z.boolean() })
 export const requestAnswerSchema = z.object({ status: z.enum(["accepted", "rejected"]) })
 
 export const assistantCreateSchema = z.object({
-    firstName: text(80).optional(),
-    lastName: text(80).optional(),
+    firstName: safeName(80).optional(),
+    lastName: safeName(80).optional(),
     userName: z.string().trim().min(3).max(80),
     email: z.string().trim().toLowerCase().email().max(254),
     phone,
@@ -72,8 +72,8 @@ export const assistantCreateSchema = z.object({
 })
 
 export const assistantUpdateSchema = z.object({
-    firstName: text(80).optional(),
-    lastName: text(80).optional(),
+    firstName: safeName(80).optional(),
+    lastName: safeName(80).optional(),
     phone: phone.optional(),
     email: z.string().trim().toLowerCase().email().max(254).optional(),
     role: z.enum(["Admin", "Assistant"]).optional(),

@@ -7,6 +7,7 @@ import { env } from "./config/env.service"
 import { dbconnection } from "./db/connection"
 import { repos } from "./db/repository"
 import billingService from "./module/billing/billing.service"
+import { runBackup } from "./scripts/backup"
 import { BILLING_QUEUE, FAST_QUEUE, WHATSAPP_WEB_QUEUE, queueConnection } from "./module/message/message.queue"
 import { sendTelegram, startTelegramPolling, telegramEnabled } from "./module/message/telegram.service"
 import { sendWhatsappWeb, startWhatsappListener, whatsappConnected } from "./module/message/whatsappWeb.service"
@@ -24,6 +25,8 @@ const sendByApi = async (to: string, body: string) => {
         signal: AbortSignal.timeout(15_000),
     })
     if (!response.ok) throw new Error(`WhatsApp API ${response.status}: ${await response.text()}`)
+    const result: any = await response.json().catch(() => ({}))
+    return { waMessageId: result?.messages?.[0]?.id as string | undefined }
 }
 
 const sendByTelegram = async (item: any, body: string) => {
@@ -47,8 +50,10 @@ const process = async (job: any) => runWithTeacher(job.data.teacher, async () =>
     const item = await repos.messageItem.findById({ id: job.data.item })
     if (!item || item.status !== "queued") return
     try {
-        await deliver(item)
-        await repos.messageItem.updateone({ filter: { _id: item._id }, data: { $set: { status: "sent", sentAt: new Date() } } })
+        const result: any = await deliver(item)
+        const set: any = { status: "sent", sentAt: new Date() }
+        if (result?.waMessageId) set.waMessageId = result.waMessageId
+        await repos.messageItem.updateone({ filter: { _id: item._id }, data: { $set: set } })
     } catch (error: any) {
         if (error instanceof Simulated) {
             await repos.messageItem.updateone({ filter: { _id: item._id }, data: { $set: { status: "simulated", sentAt: new Date() } } })
@@ -72,6 +77,16 @@ export const startWorkers = async () => {
     // Closes the previous month's invoices on the 1st of every month.
     const billing = new Queue(BILLING_QUEUE, { connection: queueConnection() as any })
     await billing.upsertJobScheduler("monthly-invoices", { pattern: "30 0 1 * *", tz: "Africa/Cairo" }, { name: "generate" })
+    if (env.backupDaily) {
+        // Nightly backup, streamed to disk (see scripts/backup.ts). Only one worker takes each run.
+        const BACKUP_QUEUE = "backup"
+        new Worker(BACKUP_QUEUE, async () => {
+            const result = await runBackup()
+            console.log(`[backup] ${result.file} (${(result.size / 1024 / 1024).toFixed(2)} MB)`)
+        }, { connection: queueConnection() as any })
+        const backups = new Queue(BACKUP_QUEUE, { connection: queueConnection() as any })
+        await backups.upsertJobScheduler("daily-backup", { pattern: "0 3 * * *", tz: "Africa/Cairo" }, { name: "backup" })
+    }
     await startWhatsappListener()
     startTelegramPolling()
     console.log("background worker started")

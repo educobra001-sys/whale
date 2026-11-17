@@ -62,13 +62,13 @@ export const teacherScope = (req: userRequest, res: Response, next: NextFunction
     runWithTeacher(actor.teacherId, next)
 }
 
-// Owner, center, student and parent routes run on the platform scope and filter explicitly.
+// Owner, center, school, student and parent routes run on the platform scope and filter explicitly.
 export const platformScope = (req: userRequest, res: Response, next: NextFunction) => {
     runAsPlatform(next)
 }
 
 export const activeCenter = (req: userRequest, res: Response, next: NextFunction) => {
-    if (req.actor?.status !== "active") throw new ForbiddenError("This center is not active.", { code: "NOT_ACTIVE" })
+    if (req.actor?.status !== "active") throw new ForbiddenError("This account is not active.", { code: "NOT_ACTIVE" })
     next()
 }
 

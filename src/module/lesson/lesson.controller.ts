@@ -6,7 +6,7 @@ import { send } from "../../common/exceptions/successresponce"
 import { pick, sameId, sum } from "../../common/service/helpers"
 import { missingStudent, studentRefs } from "../../common/service/lookups"
 import { validation } from "../../common/service/validation"
-import { money, objectId, params, text } from "../../common/service/zodTypes"
+import { money, objectId, params, text, safeUrl } from "../../common/service/zodTypes"
 import { repos } from "../../db/repository"
 import { can, requireFeature } from "../../middleware/auth.middleware"
 import { sessionLabel } from "../shared/views"
@@ -18,21 +18,21 @@ const partSchema = z.object({
     _id: z.string().optional(),
     category: text(40).optional(),
     title: text(200).optional(),
-    url: text(2048).optional(),
+    url: safeUrl().optional(),
     durationSeconds: z.coerce.number().min(0).optional(),
 })
 const questionSchema = z.object({
     _id: z.string().optional(),
     type: z.enum(["mcq", "essay"]),
     text: text(4000).optional(),
-    imageUrl: text(2048).optional(),
+    imageUrl: safeUrl().optional(),
     options: z.array(text(500)).max(10).optional(),
     correct: text(500).optional(),
     bonusPoints: z.coerce.number().min(0).max(100000).optional(),
     triggerSeconds: z.coerce.number().min(0).optional(),
     part: text(40).optional(),
     isActive: z.boolean().optional(),
-    solutionUrl: text(2048).optional(),
+    solutionUrl: safeUrl().optional(),
 })
 const lessonSchema = z.object({
     title: z.string().trim().min(1).max(200),

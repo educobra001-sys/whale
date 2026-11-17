@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { dateText, money, objectId, text } from "../../common/service/zodTypes"
+import { dateText, money, objectId, text, safeUrl, safeName } from "../../common/service/zodTypes"
 
 export const statusSchema = z.object({
     status: z.enum(["active", "rejected", "suspended"]),
@@ -38,12 +38,13 @@ export const ruleSchema = z.object({
     }).optional(),
 })
 export const createCenterSchema = z.object({
-    name: z.string().trim().min(2).max(120),
+    kind: z.enum(["center", "school"]).optional(),
+    name: safeName(120, 2),
     phone: z.string().trim().min(6).max(32),
     password: z.string().min(8).max(128),
     textlocation: text(300).optional(),
     localphone: text(32).optional(),
-    Maplocation: text(1000).optional(),
+    Maplocation: safeUrl(1000).optional(),
 })
 export const adReviewSchema = z.object({ status: z.enum(["approved", "rejected"]), note: text(500).optional() })
 export const monthSchema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/, "Use YYYY-MM") })
