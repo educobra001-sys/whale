@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { v2 as cloudinary } from "cloudinary"
 import multer from "multer"
@@ -15,8 +16,19 @@ const ALLOWED: Record<string, string> = {
     "video/mp4": ".mp4",
 }
 
-export const uploadRoot = path.resolve(__dirname, "../../..", env.uploadDir)
-fs.mkdirSync(uploadRoot, { recursive: true })
+// Read-only hosts (Vercel) only allow writing in the temp folder, so fall back to it.
+const makeUploadRoot = () => {
+    const wanted = path.resolve(__dirname, "../../..", env.uploadDir)
+    try {
+        fs.mkdirSync(wanted, { recursive: true })
+        return wanted
+    } catch {
+        const fallback = path.join(os.tmpdir(), "educobra-uploads")
+        fs.mkdirSync(fallback, { recursive: true })
+        return fallback
+    }
+}
+export const uploadRoot = makeUploadRoot()
 
 const useCloudinary = Boolean(env.cloudinaryCloud && env.cloudinaryKey && env.cloudinarySecret)
 if (useCloudinary) {
