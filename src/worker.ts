@@ -70,10 +70,14 @@ const previousMonth = () => {
     return monthKey(new Date(now.getFullYear(), now.getMonth(), 0, 12))
 }
 
+// Fewer Redis calls while the queues are empty, so hosted Redis with a monthly command limit (Upstash free) lasts.
+// New jobs still start right away: BullMQ wakes a waiting worker as soon as one is added.
+const idle = { drainDelay: 60, stalledInterval: 300_000 }
+
 export const startWorkers = async () => {
-    new Worker(FAST_QUEUE, process, { connection: queueConnection() as any, concurrency: 20, limiter: { max: 25, duration: 1000 } })
-    new Worker(WHATSAPP_WEB_QUEUE, process, { connection: queueConnection() as any, concurrency: 1 })
-    new Worker(BILLING_QUEUE, () => billingService.generateMonth(previousMonth()), { connection: queueConnection() as any })
+    new Worker(FAST_QUEUE, process, { connection: queueConnection() as any, concurrency: 20, limiter: { max: 25, duration: 1000 }, ...idle })
+    new Worker(WHATSAPP_WEB_QUEUE, process, { connection: queueConnection() as any, concurrency: 1, ...idle })
+    new Worker(BILLING_QUEUE, () => billingService.generateMonth(previousMonth()), { connection: queueConnection() as any, ...idle })
     // Closes the previous month's invoices on the 1st of every month.
     const billing = new Queue(BILLING_QUEUE, { connection: queueConnection() as any })
     await billing.upsertJobScheduler("monthly-invoices", { pattern: "30 0 1 * *", tz: "Africa/Cairo" }, { name: "generate" })
@@ -83,7 +87,7 @@ export const startWorkers = async () => {
         new Worker(BACKUP_QUEUE, async () => {
             const result = await runBackup()
             console.log(`[backup] ${result.file} (${(result.size / 1024 / 1024).toFixed(2)} MB)`)
-        }, { connection: queueConnection() as any })
+        }, { connection: queueConnection() as any, ...idle })
         const backups = new Queue(BACKUP_QUEUE, { connection: queueConnection() as any })
         await backups.upsertJobScheduler("daily-backup", { pattern: "0 3 * * *", tz: "Africa/Cairo" }, { name: "backup" })
     }

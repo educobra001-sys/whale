@@ -1,4 +1,4 @@
-# Render Blueprint: the EduCobra API and its Redis. Render > New > Blueprint > pick this repository.
+# Render Blueprint for the EduCobra API (Blueprints may ask for a card; docs/DEPLOY.md shows the manual way without one).
 # Values marked "sync: false" are asked for once when you create the Blueprint.
 services:
   - type: web
@@ -22,11 +22,9 @@ services:
       # Visitors reach the API through Vercel, then Render's own proxy.
       - key: TRUST_PROXY
         value: "2"
+      # Upstash (free, no card): the rediss:// link from the database page.
       - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: educobra-redis
-          property: connectionString
+        sync: false
       - key: ACCESS_SECRET
         generateValue: true
       - key: REFRESH_SECRET
@@ -58,10 +56,3 @@ services:
       - key: WHATSAPP_APP_SECRET
         sync: false
 
-  - type: keyvalue
-    name: educobra-redis
-    plan: free
-    region: frankfurt
-    # BullMQ needs every queued job kept, never evicted.
-    maxmemoryPolicy: noeviction
-    ipAllowList: []
