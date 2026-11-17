@@ -29,7 +29,8 @@ export const env = {
     webConcurrency: number("WEB_CONCURRENCY", 0),
     dataBase_url: read("DATABASE_URL"),
     db_name: read("DB_NAME", "educobra"),
-    redis_url: read("REDIS_URL"),
+    // Upstash only accepts encrypted connections, so its links are switched to rediss:// if pasted as redis://.
+    redis_url: read("REDIS_URL").trim().replace(/^redis:\/\/(?=.*\.upstash\.io)/, "rediss://"),
     access_secret: read("ACCESS_SECRET"),
     refresh_secret: read("REFRESH_SECRET"),
     salt: number("BCRYPT_ROUNDS", 11),
