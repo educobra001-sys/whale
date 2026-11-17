@@ -3,9 +3,12 @@ import { personName, sameId, whatsappNumber } from "../../common/service/helpers
 import { redisService } from "../../common/service/redisService"
 import { getMessagingSettings } from "../../common/service/settings"
 import { runAsPlatform } from "../../common/service/tenantContext"
+import { env } from "../../config/env.service"
 import { repos } from "../../db/repository"
 import { sessionLabel } from "../shared/views"
 import sessionService from "../session/session.service"
+import { waitUntil } from "@vercel/functions"
+import { deliverNow } from "../../worker"
 import { fastQueue, webQueue } from "./message.queue"
 
 export const VARIABLES = [
@@ -161,7 +164,11 @@ class MessageService {
             }
         }
         const jobs = rows.map((row: any) => ({ name: "send", data: { teacher: teacherId, item: String(row._id) } }))
-        if (channel === "whatsapp_web") {
+        if (env.serverless) {
+            if (channel === "whatsapp_web") throw new BadRequestError("WhatsApp Web needs a server that stays on. Use the WhatsApp API or Telegram here.")
+            // Keeps running after the reply is sent, so the screen doesn't wait for every message.
+            waitUntil(deliverNow(jobs).catch((error) => console.error("[messages]", error)))
+        } else if (channel === "whatsapp_web") {
             const step = settings.delaySeconds * 1000
             for (const job of jobs) {
                 // A reserved send time per message, shared by every teacher, keeps the linked number at the owner's pace.

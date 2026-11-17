@@ -6,3 +6,5 @@ uploads
 *.log
 backups
 downloads
+front-end/vendor
+.vercel

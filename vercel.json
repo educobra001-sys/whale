@@ -1,9 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "echo \"Static front-end: nothing to install\"",
-  "buildCommand": "echo \"Static front-end: nothing to build\"",
+  "buildCommand": "npm run build:vercel",
   "outputDirectory": "front-end",
+  "regions": ["fra1"],
+  "functions": {
+    "api/index.js": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/cron/monthly", "schedule": "0 1 1 * *" }
+  ],
   "headers": [
     {
       "source": "/((?!files/|download/).*)",
@@ -16,6 +22,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "https://educobra-api.onrender.com/$1" }
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }

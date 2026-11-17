@@ -19,10 +19,12 @@
     "owner:create": "node ./dist/scripts/createOwner.js",
     "test": "tsc && node --test --test-concurrency=1 \"dist/test/**/*.test.js\"",
     "backup": "node ./dist/scripts/backup.js",
-    "restore": "node ./dist/scripts/restore.js"
+    "restore": "node ./dist/scripts/restore.js",
+    "build:vercel": "tsc && node scripts/vercel-vendor.js"
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "@vercel/functions": "^2.2.13",
     "baileys": "^6.7.24",
     "bcrypt": "^6.0.0",
     "bullmq": "^6.5.1",

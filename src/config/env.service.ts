@@ -12,9 +12,12 @@ const number = (key: string, fallback: number) => {
 }
 
 const nodeEnv = read("NODE_ENV", "dev")
+// Vercel runs the API as functions: no background worker, no disk except /tmp, 4.5 MB request bodies.
+const serverless = Boolean(process.env.VERCEL)
 
 export const env = {
     nodeEnv,
+    serverless,
     isDev: nodeEnv !== "production",
     port: number("PORT", 4000),
     server_IP: read("SERVER_IP", "127.0.0.1"),
@@ -39,8 +42,8 @@ export const env = {
     smtpPass: read("SMTP_PASS"),
     mailFrom: read("MAIL_FROM", "EduCobra <no-reply@educobra.local>"),
     corsOrigins: read("CORS_ORIGINS").split(",").map((item) => item.trim()).filter(Boolean),
-    uploadDir: read("UPLOAD_DIR", "uploads"),
-    maxUploadMb: number("MAX_UPLOAD_MB", 25),
+    uploadDir: read("UPLOAD_DIR", serverless ? "/tmp/educobra-uploads" : "uploads"),
+    maxUploadMb: number("MAX_UPLOAD_MB", serverless ? 4 : 25),
     // Tests send far more traffic from one address than any real client.
     rateLimitOff: nodeEnv !== "production" && read("RATE_LIMIT_OFF") === "true",
     // A test deployment has no email yet, so codes stay on screen and unconfigured channels are simulated.
@@ -54,6 +57,8 @@ export const env = {
     // WhatsApp Cloud API webhook: the verify token you type in Meta's dashboard, and the app secret Meta signs with.
     whatsappVerifyToken: read("WHATSAPP_VERIFY_TOKEN"),
     whatsappAppSecret: read("WHATSAPP_APP_SECRET"),
+    // Vercel Cron sends it as "Authorization: Bearer <CRON_SECRET>".
+    cronSecret: read("CRON_SECRET"),
     backupDir: read("BACKUP_DIR", "backups"),
     backupKeep: number("BACKUP_KEEP", 14),
     backupDaily: read("BACKUP_DAILY", "false") === "true",

@@ -23,7 +23,8 @@ import TeacherRouter from "./module/teacher/teacher.router"
 import WhatsappWebhookRouter from "./module/message/whatsappWebhook.controller"
 import { seedFeatures } from "./module/owner/plan.service"
 import { ensureOwner } from "./scripts/createOwner"
-import { startWorkers } from "./worker"
+import { previousMonth, startWorkers } from "./worker"
+import billingService from "./module/billing/billing.service"
 
 export const createApp = (): Express => {
     const app: Express = express()
@@ -58,6 +59,16 @@ export const createApp = (): Express => {
 
     app.get("/check-health", (req, res) => {
         successResponce({ res, message: "healthy", data: { app: "educobra", name: env.appName, redis: redisService.ready } })
+    })
+
+    // Vercel Cron: closes the previous month's invoices on the 1st (the worker does this on a normal server).
+    app.get("/cron/monthly", async (req, res, next) => {
+        if (!env.cronSecret || req.headers.authorization !== `Bearer ${env.cronSecret}`) return res.status(401).json({ message: "Unauthorized" })
+        try {
+            successResponce({ res, message: "done", data: await billingService.generateMonth(previousMonth()) })
+        } catch (error) {
+            next(error)
+        }
     })
 
     // Uploaded files are served as plain downloads that can never run scripts on this site.

@@ -46,7 +46,7 @@ const deliver = async (item: any) => {
     throw new Error(`Unknown channel ${item.channel}`)
 }
 
-const process = async (job: any) => runWithTeacher(job.data.teacher, async () => {
+export const processJob = async (job: any) => runWithTeacher(job.data.teacher, async () => {
     const item = await repos.messageItem.findById({ id: job.data.item })
     if (!item || item.status !== "queued") return
     try {
@@ -65,7 +65,26 @@ const process = async (job: any) => runWithTeacher(job.data.teacher, async () =>
     }
 })
 
-const previousMonth = () => {
+// Without a background worker (Vercel), messages are sent straight away, 10 at a time, with the same 3 tries.
+export const deliverNow = async (jobs: { data: any }[]) => {
+    const attempts = 3
+    const queue = [...jobs]
+    const run = async () => {
+        for (let job = queue.shift(); job; job = queue.shift()) {
+            for (let attemptsMade = 0; attemptsMade < attempts; attemptsMade += 1) {
+                try {
+                    await processJob({ data: job.data, attemptsMade, opts: { attempts } })
+                    break
+                } catch {
+                    if (attemptsMade + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** attemptsMade))
+                }
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(10, jobs.length) }, run))
+}
+
+export const previousMonth = () => {
     const now = new Date()
     return monthKey(new Date(now.getFullYear(), now.getMonth(), 0, 12))
 }
@@ -75,8 +94,8 @@ const previousMonth = () => {
 const idle = { drainDelay: 60, stalledInterval: 300_000 }
 
 export const startWorkers = async () => {
-    new Worker(FAST_QUEUE, process, { connection: queueConnection() as any, concurrency: 20, limiter: { max: 25, duration: 1000 }, ...idle })
-    new Worker(WHATSAPP_WEB_QUEUE, process, { connection: queueConnection() as any, concurrency: 1, ...idle })
+    new Worker(FAST_QUEUE, processJob, { connection: queueConnection() as any, concurrency: 20, limiter: { max: 25, duration: 1000 }, ...idle })
+    new Worker(WHATSAPP_WEB_QUEUE, processJob, { connection: queueConnection() as any, concurrency: 1, ...idle })
     new Worker(BILLING_QUEUE, () => billingService.generateMonth(previousMonth()), { connection: queueConnection() as any, ...idle })
     // Closes the previous month's invoices on the 1st of every month.
     const billing = new Queue(BILLING_QUEUE, { connection: queueConnection() as any })

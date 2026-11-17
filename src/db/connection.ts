@@ -7,8 +7,9 @@ mongoose.set("strictQuery", true)
 export const dbconnection = async () => {
     await mongoose.connect(env.dataBase_url, {
         dbName: env.db_name,
-        maxPoolSize: 50,
-        minPoolSize: 5,
+        // Each Vercel function instance keeps its own small pool.
+        maxPoolSize: env.serverless ? 5 : 50,
+        minPoolSize: env.serverless ? 0 : 5,
         serverSelectionTimeoutMS: 8000,
         autoIndex: true,
     })
