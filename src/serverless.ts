@@ -38,14 +38,7 @@ export default async function handler(req: Request, res: Response) {
     } catch (error) {
         console.error(error)
         const reason = String((error as Error)?.message ?? error).replace(/\/\/[^/\s:@]+:[^@\s]+@/g, "//***:***@").slice(0, 600)
-        let usedLink = ""
-        try {
-            const link = new URL(env.dataBase_url)
-            usedLink = `user "${decodeURIComponent(link.username)}", password ${link.password.length} characters, cluster ${link.host}`
-        } catch {
-            usedLink = "DATABASE_URL isn't a valid link"
-        }
-        res.status(503).json({ message: "The server can't reach the database or Redis", reason, databaseLink: usedLink })
+        res.status(503).json({ message: "The server can't reach the database or Redis", reason })
         return
     }
     app(req, res)
