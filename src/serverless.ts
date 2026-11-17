@@ -27,7 +27,8 @@ export default async function handler(req: Request, res: Response) {
         await init()
     } catch (error) {
         console.error(error)
-        res.status(503).json({ message: "The server is starting or can't reach the database. Try again in a moment." })
+        const reason = String((error as Error)?.message ?? error).replace(/\/\/[^/\s:@]+:[^@\s]+@/g, "//***:***@").slice(0, 600)
+        res.status(503).json({ message: "The server can't reach the database or Redis", reason })
         return
     }
     app(req, res)
