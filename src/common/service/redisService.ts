@@ -3,6 +3,8 @@ import { env } from "../../config/env.service"
 
 export class RedisService {
     private client: RedisClientType
+    // The last connection error, shown when a host can't reach Redis.
+    lastError: string | null = null
 
     constructor() {
         this.client = createClient({
@@ -29,7 +31,10 @@ export class RedisService {
     }
 
     handlingConnection() {
-        this.client.on("error", () => console.log("redis connection failed"))
+        this.client.on("error", (error) => {
+            this.lastError = String(error?.message ?? error)
+            console.log("redis connection failed")
+        })
         this.client.on("ready", () => console.log("redis connected successfully"))
     }
 

@@ -9,9 +9,19 @@ import { ensureOwner } from "./scripts/createOwner"
 // Vercel entry point (api/index.js). Connections are opened once per function instance and reused.
 let ready: Promise<void> | null = null
 
+// The Redis client retries forever, so give up after 10 seconds and say why.
+const waitForRedis = async () => {
+    redisService.connectRedis().catch(() => undefined)
+    for (let waited = 0; waited < 10_000; waited += 200) {
+        if (redisService.ready) return
+        await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+    throw new Error(`Redis didn't connect in 10 seconds. Check REDIS_URL (it should start with rediss://). Last error: ${redisService.lastError ?? "no answer from the server"}`)
+}
+
 const init = () => (ready ??= (async () => {
     for (const problem of envProblems().warn) console.warn(`[settings] ${problem}`)
-    await redisService.connectRedis()
+    await waitForRedis()
     await dbconnection()
     await seedFeatures()
     if (env.ownerEmail && env.ownerPassword && await ensureOwner()) console.log(`owner "${env.ownerUserName}" created`)
