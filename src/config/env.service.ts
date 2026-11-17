@@ -21,6 +21,8 @@ export const env = {
     appName: read("APP_NAME", "EduCobra"),
     publicUrl: read("PUBLIC_URL", "http://127.0.0.1:4000"),
     runWorker: read("RUN_WORKER", "true") === "true",
+    // How many proxies sit in front of the server: 1 for one host (Render alone), 2 when Vercel forwards to Render.
+    trustProxy: number("TRUST_PROXY", 1),
     webConcurrency: number("WEB_CONCURRENCY", 0),
     dataBase_url: read("DATABASE_URL"),
     db_name: read("DB_NAME", "educobra"),

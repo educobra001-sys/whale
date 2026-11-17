@@ -22,12 +22,13 @@ import StudentRouter from "./module/student/student.controller"
 import TeacherRouter from "./module/teacher/teacher.router"
 import WhatsappWebhookRouter from "./module/message/whatsappWebhook.controller"
 import { seedFeatures } from "./module/owner/plan.service"
+import { ensureOwner } from "./scripts/createOwner"
 import { startWorkers } from "./worker"
 
 export const createApp = (): Express => {
     const app: Express = express()
     app.disable("x-powered-by")
-    app.set("trust proxy", 1)
+    app.set("trust proxy", env.trustProxy)
     app.use(helmet({
         contentSecurityPolicy: {
             useDefaults: true,
@@ -105,6 +106,8 @@ export const bootstrap = async ({ worker = env.runWorker } = {}) => {
     await redisService.connectRedis()
     await dbconnection()
     await seedFeatures()
+    // Hosts without a shell (Render free plan) get their owner account from OWNER_EMAIL / OWNER_PASSWORD.
+    if (env.ownerEmail && env.ownerPassword && await ensureOwner()) console.log(`owner "${env.ownerUserName}" created`)
     const app = createApp()
     if (worker) await startWorkers()
     const server = app.listen(env.port, () => {
