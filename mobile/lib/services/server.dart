@@ -27,10 +27,20 @@ class Server {
   /// A short name for the address, like "educobra.vercel.app".
   static String get label => Uri.tryParse(_url)?.authority ?? _url;
 
+  static const _builtInKey = 'server.builtIn';
+
   static Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    _url = prefs.getString(_key) ?? normalize(builtIn);
     _recent = prefs.getStringList(_recentKey) ?? [];
+    final online = normalize(builtIn);
+    // Android keeps the old saved address when a new build is installed over an old one. The first time a build
+    // with a different built-in address opens, switch to it; after that the user's own choice is kept.
+    if (online.isNotEmpty && prefs.getString(_builtInKey) != online) {
+      await prefs.setString(_builtInKey, online);
+      await save(online);
+      return;
+    }
+    _url = prefs.getString(_key) ?? online;
   }
 
   static bool _isLocalHost(String host) =>
