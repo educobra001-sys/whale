@@ -78,6 +78,28 @@ export class RedisService {
         return Number(await this.client.eval(script, { keys: [key], arguments: [String(Date.now()), String(stepMs)] }))
     }
 
+    // A lock only one process can hold. Returns a token to release or extend it with, or null when taken.
+    async lock(key: string, ms: number) {
+        const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
+        const script = "if redis.call('SET',KEYS[1],ARGV[1],'NX','PX',ARGV[2]) then return 1 end return 0"
+        const won = Number(await this.client.eval(script, { keys: [key], arguments: [token, String(Math.max(1000, Math.round(ms)))] }))
+        return won ? token : null
+    }
+
+    async extendLock(key: string, token: string, ms: number) {
+        const script = "if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('PEXPIRE',KEYS[1],ARGV[2]) end return 0"
+        return Number(await this.client.eval(script, { keys: [key], arguments: [token, String(Math.max(1000, Math.round(ms)))] })) === 1
+    }
+
+    async unlock(key: string, token: string) {
+        const script = "if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end return 0"
+        await this.client.eval(script, { keys: [key], arguments: [token] })
+    }
+
+    async exists(key: string) {
+        return (await this.client.exists(key)) > 0
+    }
+
     subscriber() {
         return this.client.duplicate()
     }

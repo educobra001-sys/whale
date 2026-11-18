@@ -5,7 +5,6 @@ import { env } from "../../config/env.service"
 export const queueConnection = () => ({ url: env.redis_url, maxRetriesPerRequest: null })
 
 export const FAST_QUEUE = "messages-fast"
-export const WHATSAPP_WEB_QUEUE = "messages-whatsapp-web"
 export const BILLING_QUEUE = "billing"
 
 const jobDefaults = {
@@ -16,13 +15,10 @@ const jobDefaults = {
 }
 
 let fast: Queue | null = null
-let web: Queue | null = null
 
 export const fastQueue = () => (fast ??= new Queue(FAST_QUEUE, { connection: queueConnection() as any, defaultJobOptions: jobDefaults }))
-export const webQueue = () => (web ??= new Queue(WHATSAPP_WEB_QUEUE, { connection: queueConnection() as any, defaultJobOptions: jobDefaults }))
 
 export const closeQueues = async () => {
-    await Promise.all([fast?.close(), web?.close()])
+    await fast?.close()
     fast = null
-    web = null
 }

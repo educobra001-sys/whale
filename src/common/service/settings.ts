@@ -6,6 +6,8 @@ export interface MessagingSettings {
     delaySeconds: number
     maxChars: number
     whatsappApi: { provider: "meta"; phoneNumberId: string; accessToken: string; enabled: boolean }
+    // Saved from the owner's Messaging page. TELEGRAM_BOT_TOKEN in the environment is only a fallback.
+    telegram: { token: string; username: string; botName: string; webhookSecret: string; mode: "webhook" | "polling" | ""; webhookUrl: string; error: string }
 }
 
 const DEFAULTS: { messaging: MessagingSettings } = {
@@ -13,6 +15,7 @@ const DEFAULTS: { messaging: MessagingSettings } = {
         delaySeconds: 15,
         maxChars: 1000,
         whatsappApi: { provider: "meta", phoneNumberId: "", accessToken: "", enabled: false },
+        telegram: { token: "", username: "", botName: "", webhookSecret: "", mode: "", webhookUrl: "", error: "" },
     },
 }
 
@@ -24,6 +27,7 @@ export const getMessagingSettings = () =>
             ...DEFAULTS.messaging,
             ...stored,
             whatsappApi: { ...DEFAULTS.messaging.whatsappApi, ...stored.whatsappApi },
+            telegram: { ...DEFAULTS.messaging.telegram, ...stored.telegram },
         } as MessagingSettings
     }))
 
@@ -33,6 +37,7 @@ export const saveMessagingSettings = async (patch: Partial<MessagingSettings>) =
         ...current,
         ...patch,
         whatsappApi: { ...current.whatsappApi, ...patch.whatsappApi },
+        telegram: { ...current.telegram, ...patch.telegram },
     }
     await runAsPlatform(() => repos.setting.updateone({ filter: { _id: "messaging" }, data: { $set: { value } }, options: { upsert: true } }))
     if (redisService.ready) await redisService.redis_delete({ key: "settings:messaging" })

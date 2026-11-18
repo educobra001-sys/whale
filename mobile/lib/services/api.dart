@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -55,7 +56,19 @@ class Connection {
 }
 
 class Api {
-  static const _timeout = Duration(seconds: 20);
+  /// An online server that has been quiet needs a few seconds to wake up; a server on the Wi-Fi answers at once.
+  static Duration get _timeout => Server.isOnline ? const Duration(seconds: 35) : const Duration(seconds: 20);
+
+  /// Vercel refuses request bodies over about 4.5 MB.
+  static const onlineUploadLimit = 4 * 1024 * 1024;
+
+  static String get unreachable => Server.isOnline
+      ? 'Could not reach the server. Check your internet connection and try again.'
+      : 'Could not reach the server. Check the Wi-Fi and that the EduCobra server is running.';
+
+  /// True while a request has been waiting long enough that the server is probably waking up.
+  static final waking = ValueNotifier<bool>(false);
+  static int _slow = 0;
 
   /// Called when the saved sign-in no longer works, so the app can go back to the sign-in screen.
   static VoidCallback? onSignedOut;
@@ -80,16 +93,40 @@ class Api {
     final request = http.Request(method, _uri(path, query));
     request.headers.addAll(_headers(body != null, auth));
     if (body != null) request.body = jsonEncode(body);
+    final slow = Timer(const Duration(seconds: 4), () {
+      _slow++;
+      waking.value = true;
+    });
     try {
       final streamed = await request.send().timeout(_timeout);
       final response = await http.Response.fromStream(streamed);
       Connection.report(true);
       return response;
+    } on TimeoutException {
+      // A read is safe to repeat once: the first try usually woke the server up.
+      if (method == 'GET' && !_retrying) {
+        _retrying = true;
+        try {
+          return await _send(method, path, body: body, query: query, auth: auth);
+        } finally {
+          _retrying = false;
+        }
+      }
+      Connection.report(false);
+      throw ApiError(unreachable);
     } catch (_) {
       Connection.report(false);
-      throw ApiError('Could not reach the server. Check the Wi-Fi and that the EduCobra server is running.');
+      throw ApiError(unreachable);
+    } finally {
+      if (!slow.isActive) {
+        _slow = _slow > 0 ? _slow - 1 : 0;
+        if (_slow == 0) waking.value = false;
+      }
+      slow.cancel();
     }
   }
+
+  static bool _retrying = false;
 
   static dynamic _decode(http.Response response) {
     Map<String, dynamic>? json;
@@ -101,6 +138,8 @@ class Api {
     if (response.statusCode >= 200 && response.statusCode < 300) return json?['data'];
     final message = json?['message'] as String?;
     if (response.statusCode == 429) throw ApiError(message ?? 'Too many attempts. Please wait a little.', status: 429);
+    if (response.statusCode == 413) throw ApiError('This file is too big for the server. Online, files can be up to 4 MB; use a YouTube or Drive link for videos.', status: 413);
+    if (response.statusCode == 503 && json?['reason'] != null) throw ApiError('${message ?? 'The server is not ready'}: ${json!['reason']}', status: 503);
     throw ApiError(message ?? 'The request could not be completed (${response.statusCode}).', status: response.statusCode, details: json?['cause']);
   }
 
@@ -177,6 +216,12 @@ class Api {
   // ---------- uploads ----------
   /// Sends a photo, PDF or MP4 to /uploads and returns its link.
   static Future<String> upload(String filePath, {String? contentType}) async {
+    if (Server.isOnline) {
+      final size = await File(filePath).length().catchError((_) => 0);
+      if (size > onlineUploadLimit) {
+        throw ApiError('This file is ${(size / 1024 / 1024).toStringAsFixed(1)} MB. The online server accepts up to 4 MB; use a smaller photo, or a YouTube/Drive link for videos.', status: 413);
+      }
+    }
     Future<http.StreamedResponse> send() async {
       final request = http.MultipartRequest('POST', _uri('/uploads'));
       request.headers.addAll(_headers(false, true));

@@ -37,10 +37,33 @@ Every push to `main` redeploys. After changing a variable, use Deployments → R
 
 ## What works differently on Vercel
 - **Messages** (WhatsApp API, Telegram) are sent right after the request instead of through the background queue.
-- **WhatsApp Web (QR login)** isn't available: it needs a server that stays on.
-- **Telegram linking** (`/start` in the bot) needs polling, which Vercel can't do; sending to already-linked chats works.
+- **Daily check** (`/cron/daily`, Vercel Cron): restarts WhatsApp batches that stopped and briefly connects linked numbers that have been quiet for 5 days, so WhatsApp keeps them linked.
 - **Monthly invoices** are closed by Vercel Cron on the 1st of each month (`/cron/monthly`).
 - **Uploads** are limited to 4 MB per file (Vercel's request limit). Use YouTube/Drive links for videos.
 - **Daily backups** don't run; Atlas shows your data, and `npm run backup` with `DATABASE_URL` pointed at Atlas makes one from your PC.
 - The first request after a quiet period takes a few seconds while the function starts.
 - Meta webhook callback URL: `https://<your-link>/webhooks/whatsapp`.
+
+## WhatsApp from a linked number (QR code)
+Owner dashboard → **Messaging** → **Link WhatsApp**, then on the phone: WhatsApp → Linked devices → Link a device, and scan.
+A teacher can have their own number: open the teacher in the owner dashboard → **Teacher's own WhatsApp**. Their messages then go out from it; teachers without one use the platform number.
+
+How it works without a server that stays on:
+- The WhatsApp login is stored in MongoDB (`whatsappauths`), not on disk, so every Vercel function can use it.
+- A send connects, sends one message every *delay* seconds, and disconnects. When a batch is longer than one function may run (`maxDuration` 300 s in `vercel.json`), it hands the rest to a new call of `/internal/whatsapp/drain` (signed with `ACCESS_SECRET`).
+- One Redis lock per number means only one connection to it exists at a time.
+- If your Vercel plan allows less than 300 seconds, set `FUNCTION_SECONDS` to the same value as `maxDuration`.
+- WhatsApp may block numbers that send a lot of unsolicited messages. Keep the delay at 10–20 seconds and message people who know you.
+
+## Telegram bot
+1. In Telegram, talk to **@BotFather** → `/newbot` → copy the token.
+2. Owner dashboard → **Messaging** → **Telegram bot** → paste the token → **Connect bot**.
+   On Vercel the server registers `https://<your-link>/webhooks/telegram` with Telegram by itself (set `PUBLIC_URL` first if you use your own domain).
+3. Share the bot link (`https://t.me/<bot>`). Anyone who opens it gets a **Share my phone number** button; the number is matched with the students' and parents' phones and the chat is linked to every matching student. Linked chats are listed on the Messaging page.
+
+## The Android app on the online server
+Build it with the address baked in, so it opens straight on Vercel:
+```
+mobileuild-apk.bat https://<your-link>
+```
+The address is remembered in `mobile/server-url.txt` for the next build. Users can still pick another server from the sign-in screen.

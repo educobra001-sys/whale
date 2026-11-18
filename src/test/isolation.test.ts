@@ -120,7 +120,7 @@ test("inside a teacher scope, a filter asking for another teacher is overridden 
 })
 
 test("every teacher-owned model is under the tenant guard", () => {
-    const unguarded = ["Teacher", "Student", "Center", "Parent", "Owner", "Counter", "ReferralCode", "CenterLink", "TeacherLink", "Feature", "PricingRule", "Invoice", "AffiliateEarning", "PlatformSetting", "TelegramLink", "AuditLog"]
+    const unguarded = ["Teacher", "Student", "Center", "Parent", "Owner", "Counter", "ReferralCode", "CenterLink", "TeacherLink", "Feature", "PricingRule", "Invoice", "AffiliateEarning", "PlatformSetting", "TelegramLink", "AuditLog", "WhatsappAccount", "WhatsappAuth"]
     for (const [name, model] of Object.entries(mongoose.models)) {
         if (unguarded.includes(name)) continue
         assert.ok(model.schema.path("teacher"), `${name} has no teacher field`)

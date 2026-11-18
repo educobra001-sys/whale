@@ -71,6 +71,7 @@ export const ROUTES = {
     { path: "/dashboard", view: "owner/dashboard", title: "Overview", nav: { group: "Platform", icon: "grid" } },
     { path: "/teachers", view: "owner/teachers", title: "Teachers", nav: { group: "Platform", icon: "users" } },
     { path: "/teachers/:id", view: "owner/teacher-detail", title: "Teacher" },
+    { path: "/teachers/:id/messages", view: "owner/teacher-messages", title: "Messages" },
     { path: "/centers", view: "owner/centers", title: "Learning centers", nav: { group: "Platform", icon: "building" } },
     { path: "/schools", view: "owner/schools", title: "Schools & organizations", nav: { group: "Platform", icon: "book" } },
     { path: "/plans", view: "owner/plans", title: "Plans & sections", nav: { group: "Money", icon: "award" } },

@@ -2,6 +2,7 @@ import { GRADES } from "../../core/config.js";
 import { icon } from "../../core/icons.js";
 import { badge, confirmDialog, fieldHtml, formDialog, fullName, html, money, mount, on, pageHeader, readForm, statTile, table, toast, withBusy } from "../../core/ui.js";
 import { statusChip } from "./teachers.js";
+import { whatsappLinkCard } from "../shared/whatsapp-link.js";
 
 const CHANNELS = [
   { name: "telegram", label: "Telegram bot" },
@@ -12,6 +13,7 @@ const CHANNELS = [
 
 export default async function ownerTeacher(ctx) {
   const { root, api, params } = ctx;
+  let stopWhatsapp = null;
 
   const ruleFields = (teacher) => [
     { name: "name", label: "Rule name", required: true, full: true, hint: "Shown to the teacher." },
@@ -47,6 +49,7 @@ export default async function ownerTeacher(ctx) {
       title: fullName(teacher),
       text: `${teacher.email} · ${teacher.phone}`,
       actions: html`${statusChip(teacher.status)}
+        <a class="btn btn-secondary" href="#/teachers/${encodeURIComponent(params.id)}/messages">${icon("megaphone", 16)} Write messages</a>
         ${teacher.status !== "active" ? html`<button class="btn btn-primary" data-status="active" ${teacher.confirmEmail ? "" : html`disabled`}>Approve</button>` : ""}
         ${teacher.status === "pending_approval" ? html`<button class="btn btn-secondary" data-status="rejected">Reject</button>` : ""}
         ${teacher.status === "active" ? html`<button class="btn btn-danger" data-status="suspended">Suspend</button>` : ""}`,
@@ -89,6 +92,7 @@ export default async function ownerTeacher(ctx) {
         )}</section>
       </div>
       <div class="stack">
+        <section class="card" id="teacher-wa"></section>
         <section class="card"><div class="card-head"><h3>Messaging channels</h3></div>
           <form id="channels-form" class="stack">${channelFields.map(fieldHtml)}<button class="btn btn-primary btn-sm" type="submit">Save channels</button></form>
           <p class="muted small mt">A channel also needs the Telegram or WhatsApp section in the plan.</p>
@@ -100,6 +104,11 @@ export default async function ownerTeacher(ctx) {
       </div>
     </div>`);
 
+    stopWhatsapp?.();
+    stopWhatsapp = whatsappLinkCard(root.querySelector("#teacher-wa"), api.owner, params.id, {
+      title: "Teacher's own WhatsApp",
+      intro: "Optional. When linked, this teacher's WhatsApp messages go out from this number instead of the platform number.",
+    });
     on(root, "submit", "#channels-form", async (event, form) => {
       event.preventDefault();
       await withBusy(form.querySelector("button"), () => api.owner.setChannels(params.id, readForm(form, channelFields)), "Channels saved.");
@@ -148,5 +157,8 @@ export default async function ownerTeacher(ctx) {
       teacher = await render();
     }
   });
-  return stop;
+  return () => {
+    stop();
+    stopWhatsapp?.();
+  };
 }

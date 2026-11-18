@@ -10,7 +10,7 @@ import billingService from "../billing/billing.service"
 const TEACHER_ADMIN_FIELDS = ["email", "phone", "status", "statusNote", "confirmEmail", "referralId", "features", "pricePerStudent", "affiliate", "channels", "approvedAt"]
 
 class OwnerService {
-    private audit(actor: any, action: string, target: string, details?: unknown) {
+    audit(actor: any, action: string, target: string, details?: unknown) {
         return repos.auditLog.create({ actor: actor.id, actorRole: actor.role, action, target, details })
     }
 
@@ -278,7 +278,8 @@ class OwnerService {
 
     async messaging() {
         const settings = await getMessagingSettings()
-        return { ...settings, whatsappApi: { ...settings.whatsappApi, accessToken: settings.whatsappApi.accessToken ? "••••••" : "" } }
+        const { telegram, ...rest } = settings
+        return { ...rest, whatsappApi: { ...settings.whatsappApi, accessToken: settings.whatsappApi.accessToken ? "••••••" : "" } }
     }
 
     async updateMessaging(actor: any, data: any) {

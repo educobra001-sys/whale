@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const Spacer(),
             TextButton.icon(
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConnectScreen(canGoBack: true))),
-              icon: const Icon(Icons.computer, size: 18),
+              icon: Icon(Server.isOnline ? Icons.cloud_outlined : Icons.wifi, size: 18),
               label: Text(Uri.tryParse(Server.url)?.authority ?? 'Server', style: const TextStyle(fontSize: 12)),
             ),
           ]),

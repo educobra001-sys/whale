@@ -8,9 +8,9 @@ import { dbconnection } from "./db/connection"
 import { repos } from "./db/repository"
 import billingService from "./module/billing/billing.service"
 import { runBackup } from "./scripts/backup"
-import { BILLING_QUEUE, FAST_QUEUE, WHATSAPP_WEB_QUEUE, queueConnection } from "./module/message/message.queue"
+import { BILLING_QUEUE, FAST_QUEUE, queueConnection } from "./module/message/message.queue"
 import { sendTelegram, startTelegramPolling, telegramEnabled } from "./module/message/telegram.service"
-import { sendWhatsappWeb, startWhatsappListener, whatsappConnected } from "./module/message/whatsappWeb.service"
+import { keepWhatsappAlive, kickStuckWhatsapp } from "./module/message/whatsappWeb.service"
 import { Queue } from "bullmq"
 
 class Simulated extends Error {}
@@ -30,19 +30,22 @@ const sendByApi = async (to: string, body: string) => {
 }
 
 const sendByTelegram = async (item: any, body: string) => {
-    if (!telegramEnabled()) throw new Simulated()
-    const links = item.student ? await runAsPlatform(() => repos.telegramLink.findall({ filter: { student: item.student } })) : []
-    if (!links.length) throw new Error("This student hasn't linked Telegram yet")
-    await Promise.all(links.map((link) => sendTelegram(link.chatId, body)))
+    if (!(await telegramEnabled())) throw new Simulated()
+    const filter: any = { student: item.student }
+    if (item.recipient === "parent" || item.recipient === "student") filter.kind = item.recipient
+    const links = item.student ? await runAsPlatform(() => repos.telegramLink.findall({ filter })) : []
+    if (!links.length) {
+        throw new Error(item.recipient === "student"
+            ? "This student hasn't opened the Telegram bot yet"
+            : item.recipient === "parent" ? "The parent hasn't opened the Telegram bot yet" : "Nobody linked Telegram for this student yet")
+    }
+    const chats = [...new Set(links.map((link) => link.chatId))]
+    await Promise.all(chats.map((chatId) => sendTelegram(chatId, body)))
 }
 
 const deliver = async (item: any) => {
     if (item.channel === "telegram") return sendByTelegram(item, item.body)
     if (item.channel === "whatsapp_api") return sendByApi(item.to, item.body)
-    if (item.channel === "whatsapp_web") {
-        if (!whatsappConnected() && env.testMode) throw new Simulated()
-        return sendWhatsappWeb(item.to, item.body)
-    }
     throw new Error(`Unknown channel ${item.channel}`)
 }
 
@@ -95,7 +98,6 @@ const idle = { drainDelay: 60, stalledInterval: 300_000 }
 
 export const startWorkers = async () => {
     new Worker(FAST_QUEUE, processJob, { connection: queueConnection() as any, concurrency: 20, limiter: { max: 25, duration: 1000 }, ...idle })
-    new Worker(WHATSAPP_WEB_QUEUE, processJob, { connection: queueConnection() as any, concurrency: 1, ...idle })
     new Worker(BILLING_QUEUE, () => billingService.generateMonth(previousMonth()), { connection: queueConnection() as any, ...idle })
     // Closes the previous month's invoices on the 1st of every month.
     const billing = new Queue(BILLING_QUEUE, { connection: queueConnection() as any })
@@ -110,7 +112,12 @@ export const startWorkers = async () => {
         const backups = new Queue(BACKUP_QUEUE, { connection: queueConnection() as any })
         await backups.upsertJobScheduler("daily-backup", { pattern: "0 3 * * *", tz: "Africa/Cairo" }, { name: "backup" })
     }
-    await startWhatsappListener()
+    // WhatsApp (linked numbers) needs no queue worker: any process sends under a per-number lock.
+    // This only restarts batches a stopped process left behind, and keeps quiet numbers linked.
+    const watchWhatsapp = () => kickStuckWhatsapp().catch((error) => console.error("[whatsapp]", error))
+    void watchWhatsapp()
+    setInterval(watchWhatsapp, 5 * 60_000).unref()
+    setInterval(() => keepWhatsappAlive().catch(() => undefined), 24 * 3600_000).unref()
     startTelegramPolling()
     console.log("background worker started")
 }

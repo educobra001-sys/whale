@@ -21,10 +21,14 @@ import ParentRouter from "./module/parent/parent.controller"
 import StudentRouter from "./module/student/student.controller"
 import TeacherRouter from "./module/teacher/teacher.router"
 import WhatsappWebhookRouter from "./module/message/whatsappWebhook.controller"
+import { handleTelegramUpdate, telegramSecretMatches } from "./module/message/telegram.service"
+import { drainWhatsapp, internalKey, keepWhatsappAlive, kickStuckWhatsapp } from "./module/message/whatsappWeb.service"
+import crypto from "node:crypto"
 import { seedFeatures } from "./module/owner/plan.service"
 import { ensureOwner } from "./scripts/createOwner"
 import { previousMonth, startWorkers } from "./worker"
 import billingService from "./module/billing/billing.service"
+import { waitUntil } from "@vercel/functions"
 
 export const createApp = (): Express => {
     const app: Express = express()
@@ -69,6 +73,40 @@ export const createApp = (): Express => {
         } catch (error) {
             next(error)
         }
+    })
+
+    // Daily (Vercel Cron, or the worker elsewhere): restarts WhatsApp batches that stopped, keeps linked numbers alive.
+    app.get("/cron/daily", async (req, res, next) => {
+        if (!env.cronSecret || req.headers.authorization !== `Bearer ${env.cronSecret}`) return res.status(401).json({ message: "Unauthorized" })
+        try {
+            const restarted = await kickStuckWhatsapp()
+            const refreshed = await keepWhatsappAlive()
+            successResponce({ res, message: "done", data: { restarted, refreshed } })
+        } catch (error) {
+            next(error)
+        }
+    })
+
+    // Telegram calls this for every message to the bot (set up from the owner's Messaging page).
+    app.post("/webhooks/telegram", async (req, res) => {
+        if (!(await telegramSecretMatches(req.headers["x-telegram-bot-api-secret-token"]))) return res.sendStatus(401)
+        try {
+            await handleTelegramUpdate(req.body)
+        } catch (error) {
+            console.error("[telegram webhook]", error)
+        }
+        res.sendStatus(200)
+    })
+
+    // A WhatsApp batch that outlasts one Vercel function continues here, in a fresh function.
+    app.post("/internal/whatsapp/drain", (req, res) => {
+        const given = Buffer.from(String(req.headers["x-educobra-key"] ?? ""))
+        const expected = Buffer.from(internalKey())
+        if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return res.sendStatus(401)
+        const account = String(req.body?.account ?? "platform").replace(/[^\w-]/g, "").slice(0, 40) || "platform"
+        const work = drainWhatsapp(account).catch((error) => console.error("[whatsapp drain]", error))
+        if (env.serverless) waitUntil(work)
+        res.status(202).json({ message: "accepted" })
     })
 
     // Uploaded files are served as plain downloads that can never run scripts on this site.

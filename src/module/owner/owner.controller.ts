@@ -6,7 +6,12 @@ import { validation } from "../../common/service/validation"
 import { params } from "../../common/service/zodTypes"
 import { auth, platformScope, requireRole } from "../../middleware/auth.middleware"
 import billingService from "../billing/billing.service"
-import { requestWhatsapp, whatsappState } from "../message/whatsappWeb.service"
+import { BadRequestError, NotFoundError } from "../../common/exceptions/error.exceptions"
+import { repos } from "../../db/repository"
+import { actAsTeacher, messageRoutes } from "../message/message.controller"
+import { handleTelegramLinks, removeTelegramLink } from "./owner.telegram"
+import { removeTelegram, setupTelegram, telegramStatus } from "../message/telegram.service"
+import { linkWhatsapp, PLATFORM, unlinkWhatsapp, whatsappState } from "../message/whatsappWeb.service"
 import ownerService from "./owner.service"
 import * as schema from "./owner.validation"
 
@@ -48,16 +53,51 @@ router.patch("/ads/:id", validation(schema.adReviewSchema), send((req) => ownerS
 
 router.get("/messaging", send(() => ownerService.messaging()))
 router.patch("/messaging", validation(schema.messagingSchema), send((req) => ownerService.updateMessaging(req.actor, req.body), "Settings saved"))
-router.get("/whatsapp", send(() => whatsappState()))
-router.post("/whatsapp/connect", send(async () => {
-    await requestWhatsapp("connect")
-    return whatsappState()
-}))
-router.post("/whatsapp/logout", send(async () => {
-    await requestWhatsapp("logout")
-    return whatsappState()
-}))
+// WhatsApp numbers linked by QR: "platform" is the owner's number, a teacher id is that teacher's own number.
+const whatsappAccount = async (req: any) => {
+    const account = String(req.params.account ?? PLATFORM)
+    if (account === PLATFORM) return account
+    const teacherId = params(account, "teacher")
+    if (!(await repos.teacher.exists({ _id: teacherId }))) throw new NotFoundError("Teacher not found")
+    return teacherId
+}
+const unlink = async (account: string) => {
+    try {
+        return await unlinkWhatsapp(account)
+    } catch (error: any) {
+        throw new BadRequestError(error.message)
+    }
+}
+router.get("/whatsapp", send(() => whatsappState(PLATFORM)))
+router.post("/whatsapp/connect", send(() => linkWhatsapp(PLATFORM)))
+router.post("/whatsapp/logout", send(() => unlink(PLATFORM)))
+router.get("/whatsapp/:account", send(async (req) => whatsappState(await whatsappAccount(req))))
+router.post("/whatsapp/:account/connect", send(async (req) => linkWhatsapp(await whatsappAccount(req))))
+router.post("/whatsapp/:account/logout", send(async (req) => unlink(await whatsappAccount(req)), "WhatsApp unlinked"))
+
+router.get("/telegram", send(() => telegramStatus()))
+router.put("/telegram", validation(z.object({ token: z.string().trim().regex(/^\d{5,15}:[\w-]{30,60}$/, "That doesn't look like a bot token from @BotFather") })), send(async (req) => {
+    try {
+        const status = await setupTelegram(req.body.token)
+        await ownerService.audit(req.actor, "telegram.setup", "settings", { username: status.username })
+        return status
+    } catch (error: any) {
+        throw new BadRequestError(error.message)
+    }
+}, "Telegram bot connected"))
+router.delete("/telegram", send(async (req) => {
+    await ownerService.audit(req.actor, "telegram.remove", "settings", {})
+    return removeTelegram()
+}, "Telegram bot removed"))
+router.get("/telegram/links", send((req) => handleTelegramLinks(req.query)))
+router.delete("/telegram/links/:id", send((req) => removeTelegramLink(id(req)), "Link removed"))
 
 router.get("/audit", send(() => ownerService.audits()))
+
+// Messages for one teacher's students, written by the owner (same screens and rules as the teacher's own page).
+const ownerMessages: Router = Router({ mergeParams: true })
+ownerMessages.use("/messages", actAsTeacher)
+ownerMessages.use(messageRoutes((req, res, next) => next(), true))
+router.use("/teachers/:teacherId", ownerMessages)
 
 export default router

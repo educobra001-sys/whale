@@ -4,6 +4,8 @@ import { monthKey } from "../common/service/helpers"
 import { runAsPlatform } from "../common/service/tenantContext"
 import { repos } from "../db/repository"
 import { base, call, login, makeStudent, makeTeacher, ownerToken, startServer, startSession, stopServer } from "./helpers"
+// After ./helpers, which sets the test environment before anything reads it.
+import { handleTelegramUpdate } from "../module/message/telegram.service"
 
 let owner = ""
 before(async () => {
@@ -203,6 +205,81 @@ test("messages: templates with variables, review, edit, send, limits", async () 
     assert.equal((await call("POST", "/teacher/messages/send", teacher.token, { session, type: "attendance", channel: "whatsapp_web", items: attendance.data.items })).status, 403)
     assert.equal((await call("GET", "/teacher/messages/batches", teacher.token)).data.length, 2)
     assert.equal((await call("GET", "/owner/messaging", owner)).data.delaySeconds, 30)
+})
+
+test("messages: marketing to everyone with student variables, parents and students, grade filter", async () => {
+    const teacher = await makeTeacher(owner)
+    const one = await makeStudent(teacher.token, { firstName: "Mona", grade: "1" })
+    await makeStudent(teacher.token, { firstName: "Omar", grade: "2" })
+    const template = "Hi {first_name} ({student_code}, {grade}). Parent: {parent_phone}. {teacher_name} {unknown}"
+    const all = await call("POST", "/teacher/messages/preview", teacher.token, { audience: "all", type: "marketing", recipient: "both", template })
+    assert.equal(all.status, 200, all.message)
+    assert.equal(all.data.items.length, 4)
+    const mona = all.data.items.find((row: any) => row.student === one.id && row.recipient === "parent")
+    assert.equal(mona.to, one.parentPhone)
+    assert.equal(mona.body, `Hi Mona (${one.userID}, S2). Parent: ${one.parentPhone}. Teacher${teacher.userName.replace("teacher", "")} Test {unknown}`)
+    assert.ok(all.data.items.some((row: any) => row.student === one.id && row.recipient === "student" && row.to === one.phone))
+    const grade = await call("POST", "/teacher/messages/preview", teacher.token, { audience: "all", type: "marketing", grade: "1", template: "{student_name}" })
+    assert.deepEqual(grade.data.items.map((row: any) => row.student), [one.id])
+    assert.equal((await call("PUT", "/teacher/messages/templates/marketing", teacher.token, { body: "Offer for {student_name}" })).status, 200)
+    assert.equal((await call("GET", "/teacher/messages/config", teacher.token)).data.templates.marketing, "Offer for {student_name}")
+    assert.equal((await call("POST", "/teacher/messages/preview", teacher.token, { audience: "attended", type: "attendance" })).status, 400)
+})
+
+test("owner writes messages for a teacher, with every channel, and sends from the linked number", async () => {
+    const teacher = await makeTeacher(owner)
+    await makeStudent(teacher.token, { firstName: "Nour" })
+    const config = await call("GET", `/owner/teachers/${teacher.id}/messages/config`, owner)
+    assert.equal(config.status, 200, config.message)
+    assert.deepEqual(config.data.channels.map((row: any) => row.key), ["telegram", "whatsapp_api", "whatsapp_web", "whatsapp_link"])
+    assert.equal(config.data.whatsapp.linked, false)
+    const preview = await call("POST", `/owner/teachers/${teacher.id}/messages/preview`, owner, { audience: "all", type: "marketing", template: "Hello {student_name}" })
+    assert.equal(preview.data.items.length, 1)
+    // No number linked in a test deployment: recorded as simulated instead of failing.
+    const sent = await call("POST", `/owner/teachers/${teacher.id}/messages/send`, owner, { type: "marketing", channel: "whatsapp_web", items: preview.data.items })
+    assert.equal(sent.status, 201, sent.message)
+    assert.equal(sent.data.simulated, true)
+    const batch = await call("GET", `/teacher/messages/batches/${sent.data.batch}`, teacher.token)
+    assert.equal(batch.data.items[0].status, "simulated")
+    assert.equal(batch.data.items[0].sender, "platform")
+    // The owner's routes stay inside that teacher: another teacher's batch isn't visible.
+    const other = await makeTeacher(owner)
+    assert.equal((await call("GET", `/owner/teachers/${other.id}/messages/batches/${sent.data.batch}`, owner)).status, 404)
+    assert.equal((await call("GET", `/owner/teachers/${teacher.id}/messages/config`, teacher.token)).status, 403)
+})
+
+test("whatsapp numbers: platform and per-teacher status", async () => {
+    const teacher = await makeTeacher(owner)
+    const platform = await call("GET", "/owner/whatsapp/platform", owner)
+    assert.equal(platform.status, 200, platform.message)
+    assert.equal(platform.data.account, "platform")
+    const own = await call("GET", `/owner/whatsapp/${teacher.id}`, owner)
+    assert.equal(own.data.status, "disconnected")
+    assert.equal((await call("GET", "/owner/whatsapp/000000000000000000000000", owner)).status, 404)
+    assert.equal((await call("GET", "/owner/whatsapp/platform", teacher.token)).status, 403)
+    assert.equal((await call("POST", "/internal/whatsapp/drain", null, { account: "platform" })).status, 401)
+})
+
+test("telegram: sharing a phone number links the chat to the matching students", async () => {
+    const teacher = await makeTeacher(owner)
+    const child = await makeStudent(teacher.token, { firstName: "Laila" })
+    const update = (contactUser: number, phone: string) => ({
+        update_id: 1,
+        message: { chat: { id: 555000 + contactUser, type: "private" }, from: { id: 9000, first_name: "Mum" }, contact: { phone_number: phone, user_id: contactUser } },
+    })
+    // Replies can't be sent without a bot token; the link is saved before replying.
+    const run = (body: any) => handleTelegramUpdate(body).catch(() => undefined)
+    await run(update(1234, `+2${child.parentPhone}`))
+    assert.equal(await runAsPlatform(() => repos.telegramLink.count({ student: child.id })), 0, "someone else's contact card is refused")
+    await run(update(9000, `+2${child.parentPhone}`))
+    const links = await runAsPlatform(() => repos.telegramLink.findall({ filter: { student: child.id } }))
+    assert.equal(links.length, 1)
+    assert.equal(links[0].kind, "parent")
+    assert.equal(links[0].chatId, String(555000 + 9000))
+    const listed = await call("GET", "/owner/telegram/links", owner, undefined)
+    assert.ok(listed.data.some((row: any) => row.student?._id === child.id))
+    assert.equal((await call("PUT", "/owner/telegram", owner, { token: "not-a-token" })).status, 400)
+    assert.equal((await call("GET", "/owner/telegram", owner)).data.configured, false)
 })
 
 test("teachers can link, but linking opens no data", async () => {

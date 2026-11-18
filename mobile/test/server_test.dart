@@ -10,4 +10,12 @@ void main() {
     expect(Server.normalize('educobra://connect?url=http%3A%2F%2F10.0.0.5%3A4000'), 'http://10.0.0.5:4000');
     expect(Server.normalize(''), '');
   });
+
+  test('online addresses default to https', () {
+    expect(Server.normalize('educobra.vercel.app'), 'https://educobra.vercel.app');
+    expect(Server.normalize('EduCobra.Vercel.app/'), 'https://educobra.vercel.app');
+    expect(Server.normalize('https://educobra.vercel.app/login.html'), 'https://educobra.vercel.app');
+    expect(Server.normalize('localhost'), 'http://localhost:4000');
+    expect(Server.normalize('mypc.local:4000'), 'http://mypc.local:4000');
+  });
 }

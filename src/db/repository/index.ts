@@ -54,5 +54,7 @@ export const repos = {
     affiliateEarning: repo(platform.affiliateEarningModel),
     setting: repo(platform.settingModel),
     telegramLink: repo(platform.telegramLinkModel),
+    whatsappAccount: repo(platform.whatsappAccountModel),
+    whatsappAuth: repo(platform.whatsappAuthModel),
     auditLog: repo(platform.auditLogModel),
 }

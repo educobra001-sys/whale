@@ -324,7 +324,7 @@ export const monthlyActiveModel = tenantModel("MonthlyActive", monthlyActiveSche
 
 const templateSchema = new Schema({
     teacher,
-    type: { type: String, enum: ["attendance", "absence"], required: true },
+    type: { type: String, enum: ["attendance", "absence", "marketing", "custom"], required: true },
     body: { type: String, required: true, maxlength: 4000 },
 }, { timestamps: true })
 templateSchema.index({ teacher: 1, type: 1 }, { unique: true })
@@ -351,8 +351,12 @@ const messageItemSchema = new Schema({
     to: String,
     body: String,
     channel: String,
+    // Telegram: which of the student's linked chats get it. WhatsApp on the server: which linked number sends it.
+    recipient: { type: String, enum: ["parent", "student", "both"], default: "parent" },
+    sender: { type: String, default: "platform" },
     status: { type: String, enum: ["queued", "sent", "delivered", "read", "simulated", "failed", "skipped"], default: "queued" },
     error: String,
+    tries: { type: Number, default: 0 },
     sentAt: Date,
     // WhatsApp Cloud API: Meta's id for the sent message, matched by the delivery webhook.
     waMessageId: String,
@@ -361,4 +365,6 @@ const messageItemSchema = new Schema({
 })
 messageItemSchema.index({ teacher: 1, batch: 1 })
 messageItemSchema.index({ waMessageId: 1 }, { sparse: true })
+// The WhatsApp sender picks the oldest waiting message of its number, across teachers.
+messageItemSchema.index({ channel: 1, status: 1, sender: 1, _id: 1 })
 export const messageItemModel = tenantModel("MessageItem", messageItemSchema)

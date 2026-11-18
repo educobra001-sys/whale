@@ -131,7 +131,7 @@ class _LoadViewState extends State<LoadView> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _loaded == null) return const Center(child: CircularProgressIndicator());
+    if (_loading && _loaded == null) return const WakingSpinner();
     if (_loaded == null) {
       return EmptyState(
         icon: Icons.cloud_off_outlined,
@@ -152,6 +152,30 @@ class _LoadViewState extends State<LoadView> {
         ),
       Expanded(child: RefreshIndicator(onRefresh: _reload, child: content)),
     ]);
+  }
+}
+
+/// A spinner that explains itself when the online server takes a while to wake up.
+class WakingSpinner extends StatelessWidget {
+  const WakingSpinner({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const CircularProgressIndicator(),
+        ValueListenableBuilder<bool>(
+          valueListenable: Api.waking,
+          builder: (context, waking, _) => AnimatedOpacity(
+            opacity: waking ? 1 : 0,
+            duration: const Duration(milliseconds: 300),
+            child: const Padding(
+              padding: EdgeInsets.only(top: 14),
+              child: Text('Waking up the server…\nThe first visit after a quiet while takes a few seconds.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 }
 

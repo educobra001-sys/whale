@@ -55,11 +55,11 @@ router.get("/telegram", send(async (req) => {
         : req.actor.role === "parent" ? (await repos.parent.findById({ id: req.actor.id }))?.children ?? [] : []
     const links = await repos.telegramLink.findall({ filter: { student: { $in: children } } })
     const students = await repos.student.findall({ filter: { _id: { $in: children } }, select: "firstName lastName" })
-    return students.map((student) => ({
+    return Promise.all(students.map(async (student) => ({
         student,
         linked: links.some((link) => sameId(link.student, student._id)),
-        url: telegramDeepLink(String(student._id), req.actor.role),
-    }))
+        url: await telegramDeepLink(String(student._id), req.actor.role),
+    })))
 }))
 
 export default router

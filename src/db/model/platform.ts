@@ -82,14 +82,41 @@ const settingSchema = new Schema({
 }, { timestamps: true })
 export const settingModel = mongoose.model("PlatformSetting", settingSchema)
 
+// A Telegram chat that receives one student's messages. Made when someone shares their phone number with the bot
+// (matched against the student's or the parent's phone) or opens a signed link from the app.
 const telegramLinkSchema = new Schema({
     chatId: { type: String, required: true },
     student: { type: Types.ObjectId, ref: "Student", required: true },
     kind: { type: String, enum: ["student", "parent"], default: "parent" },
+    phone: String,
+    telegramName: String,
+    telegramUsername: String,
 }, { timestamps: true })
 telegramLinkSchema.index({ chatId: 1, student: 1 }, { unique: true })
 telegramLinkSchema.index({ student: 1 })
 export const telegramLinkModel = mongoose.model("TelegramLink", telegramLinkSchema)
+
+// One WhatsApp number linked by QR: "platform" (the owner's number) or a teacher's id.
+// Its login lives in whatsappAuth, so any server process (or a short-lived Vercel function) can use it.
+const whatsappAccountSchema = new Schema({
+    _id: { type: String, required: true },
+    status: { type: String, enum: ["disconnected", "connecting", "qr", "connected"], default: "disconnected" },
+    phone: String,
+    qr: String,
+    error: String,
+    linkedAt: Date,
+    lastSentAt: Date,
+    lastSeenAt: Date,
+}, { timestamps: true })
+export const whatsappAccountModel = mongoose.model("WhatsappAccount", whatsappAccountSchema)
+
+const whatsappAuthSchema = new Schema({
+    _id: { type: String, required: true },
+    account: { type: String, required: true },
+    value: { type: String, required: true },
+})
+whatsappAuthSchema.index({ account: 1 })
+export const whatsappAuthModel = mongoose.model("WhatsappAuth", whatsappAuthSchema)
 
 const auditLogSchema = new Schema({
     actor: Types.ObjectId,

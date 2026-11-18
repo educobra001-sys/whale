@@ -262,6 +262,7 @@ export const api = {
     withdrawPlatformAd: (announcementId) => post(`/teacher/announcements/${id(announcementId)}/withdraw-platform`),
 
     messageConfig: () => get("/teacher/messages/config"),
+    messageSessions: () => get("/teacher/messages/sessions"),
     saveMessageTemplate: (type, body) => put(`/teacher/messages/templates/${id(type)}`, { body }),
     previewMessages: (body) => post("/teacher/messages/preview", body),
     previewMessage: (body) => post("/teacher/messages/preview-one", body),
@@ -308,6 +309,30 @@ export const api = {
     whatsapp: () => get("/owner/whatsapp"),
     connectWhatsapp: () => post("/owner/whatsapp/connect"),
     logoutWhatsapp: () => post("/owner/whatsapp/logout"),
+    // "platform" is the owner's number; a teacher id is that teacher's own number.
+    whatsappAccount: (account) => get(`/owner/whatsapp/${id(account)}`),
+    connectWhatsappAccount: (account) => post(`/owner/whatsapp/${id(account)}/connect`),
+    logoutWhatsappAccount: (account) => post(`/owner/whatsapp/${id(account)}/logout`),
+    telegram: () => get("/owner/telegram"),
+    setTelegram: (token) => put("/owner/telegram", { token }),
+    removeTelegram: () => del("/owner/telegram"),
+    telegramLinks: (query) => get("/owner/telegram/links", query),
+    removeTelegramLink: (linkId) => del(`/owner/telegram/links/${id(linkId)}`),
+    // The messages screen for one teacher's students, as the owner.
+    teacherMessages: (teacherId) => {
+      const base = `/owner/teachers/${id(teacherId)}/messages`;
+      return {
+        config: () => get(`${base}/config`),
+        sessions: () => get(`${base}/sessions`),
+        saveTemplate: (type, body) => put(`${base}/templates/${id(type)}`, { body }),
+        preview: (body) => post(`${base}/preview`, body),
+        previewOne: (body) => post(`${base}/preview-one`, body),
+        send: (body) => post(`${base}/send`, body),
+        report: (itemId, status) => patch(`${base}/items/${id(itemId)}`, { status }),
+        batches: () => get(`${base}/batches`),
+        batch: (batchId) => get(`${base}/batches/${id(batchId)}`),
+      };
+    },
   },
 
   // ---------- Assistant (own account only; teaching data goes through api.teacher) ----------

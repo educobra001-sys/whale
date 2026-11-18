@@ -60,9 +60,19 @@ export const env = {
     whatsappAppSecret: read("WHATSAPP_APP_SECRET"),
     // Vercel Cron sends it as "Authorization: Bearer <CRON_SECRET>".
     cronSecret: read("CRON_SECRET"),
+    // How long one Vercel function may run (vercel.json maxDuration). Long WhatsApp batches continue in a new call.
+    functionSeconds: number("FUNCTION_SECONDS", 300),
     backupDir: read("BACKUP_DIR", "backups"),
     backupKeep: number("BACKUP_KEEP", 14),
     backupDaily: read("BACKUP_DAILY", "false") === "true",
+}
+
+// The address this deployment answers on, for webhooks and for a function to continue its own work.
+export const selfUrl = () => {
+    if (/^https:\/\//.test(env.publicUrl)) return env.publicUrl.replace(/\/+$/, "")
+    const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+    if (host) return `https://${host}`
+    return env.publicUrl.replace(/\/+$/, "")
 }
 
 const PLACEHOLDERS = /^(change-me.*|secret|password|123456.*|)$/i

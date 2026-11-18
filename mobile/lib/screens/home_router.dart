@@ -117,6 +117,7 @@ class AccountScreen extends StatelessWidget {
           InfoRow('Server', Server.url),
         ]),
       ),
+      if (account.role == Role.parent || account.role == Role.student) ...[const Gap(), const TelegramCard()],
       ...extra,
       const Gap(),
       OutlinedButton.icon(onPressed: () => _changePassword(context), icon: const Icon(Icons.lock_reset), label: const Text('Change password')),
@@ -156,5 +157,60 @@ class AccountScreen extends StatelessWidget {
     if (ok != true || !context.mounted) return;
     final done = await attempt(context, () => Api.patch('/${account.role.name}/password', {'currentPassword': current.text, 'newPassword': next.text}));
     if (done != null && context.mounted) await signOut(context, message: 'Password changed. Please sign in with the new one.');
+  }
+}
+
+
+/// Attendance and other messages can arrive on Telegram. Opening the bot and sharing the phone number links it;
+/// the per-child button links that child directly.
+class TelegramCard extends StatefulWidget {
+  const TelegramCard({super.key});
+  @override
+  State<TelegramCard> createState() => _TelegramCardState();
+}
+
+class _TelegramCardState extends State<TelegramCard> {
+  List<Map<String, dynamic>>? _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rows = asList(await Api.get('/me/telegram'));
+      if (mounted) setState(() => _rows = rows);
+    } catch (_) {
+      if (mounted) setState(() => _rows = const []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows;
+    // Hidden until the owner has connected a bot (the links are empty then).
+    if (rows == null || rows.isEmpty || rows.every((row) => '${row['url'] ?? ''}'.isEmpty)) return const SizedBox.shrink();
+    return SectionCard(
+      title: 'Messages on Telegram',
+      trailing: IconButton(onPressed: _load, icon: const Icon(Icons.refresh, size: 20), tooltip: 'Check again'),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Get attendance, absence and news from the teachers on Telegram. Open the bot, then press "Share my phone number".', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+        const Gap(10),
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              Icon(row['linked'] == true ? Icons.check_circle : Icons.telegram, color: row['linked'] == true ? AppColors.success : AppColors.info),
+              const SizedBox(width: 10),
+              Expanded(child: Text(fullName(asMap(row['student'])), style: const TextStyle(fontWeight: FontWeight.w600))),
+              row['linked'] == true
+                  ? const Pill('Linked', tone: Tone.success)
+                  : TextButton(onPressed: () => openLink('${row['url']}'), child: const Text('Open bot')),
+            ]),
+          ),
+      ]),
+    );
   }
 }
