@@ -95,7 +95,7 @@ export default async function ownerTeacher(ctx) {
         <section class="card" id="teacher-wa"></section>
         <section class="card"><div class="card-head"><h3>Messaging channels</h3></div>
           <form id="channels-form" class="stack">${channelFields.map(fieldHtml)}<button class="btn btn-primary btn-sm" type="submit">Save channels</button></form>
-          <p class="muted small mt">A channel also needs the Telegram or WhatsApp section in the plan.</p>
+          <p class="muted small mt">The teacher sees <strong>Messages</strong> in their account only when a channel is on here <em>and</em> their plan has the WhatsApp or Telegram section${teacher.features.some((key) => key === "whatsapp" || key === "telegram") ? "" : html` — <a href="#/plans?email=${encodeURIComponent(teacher.email)}">this plan has neither yet</a>`}.</p>
         </section>
         <section class="card"><div class="card-head"><h3>Affiliate deal</h3></div>
           <form id="affiliate-form" class="stack">${affiliateFields.map(fieldHtml)}<button class="btn btn-primary btn-sm" type="submit">Save deal</button></form>

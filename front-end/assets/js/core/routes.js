@@ -78,6 +78,7 @@ export const ROUTES = {
     { path: "/billing", view: "owner/billing", title: "Pricing & billing", nav: { group: "Money", icon: "wallet" } },
     { path: "/affiliates", view: "owner/affiliates", title: "Affiliates", nav: { group: "Money", icon: "link" } },
     { path: "/ads", view: "owner/ads", title: "Ads", nav: { group: "Control", icon: "megaphone" } },
+    { path: "/send-messages", view: "owner/send-messages", title: "Send messages", nav: { group: "Control", icon: "megaphone" } },
     { path: "/messaging", view: "owner/messaging", title: "Messaging", nav: { group: "Control", icon: "phone" } },
     { path: "/account", view: "owner/account", title: "Account", nav: { group: "Control", icon: "settings" } },
   ],
