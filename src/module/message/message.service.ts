@@ -88,6 +88,11 @@ class MessageService {
         const senderRow: any = sender.linked ? await runAsPlatform(() => repos.whatsappAccount.findById({ id: sender.account, select: "phone" })) : null
         return {
             channels: this.enabledChannels(teacher, options).map((key) => ({ key, label: CHANNEL_LABEL[key] })),
+            // Why there may be no channel: the plan lacks WhatsApp/Telegram, or the owner hasn't switched one on.
+            access: {
+                plan: ["whatsapp", "telegram"].filter((key) => teacher.features.includes(key)),
+                switchedOn: Object.keys(CHANNEL_LABEL).filter((key) => teacher.channels?.[key]),
+            },
             delaySeconds: settings.delaySeconds,
             maxChars: settings.maxChars,
             variables: VARIABLES,

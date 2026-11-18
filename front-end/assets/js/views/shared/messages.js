@@ -96,7 +96,14 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
   }
 
   function composeHtml() {
-    if (!config.channels.length) return emptyState("No channel is active yet", "EduCobra activates Telegram or WhatsApp for your account. Contact the team to turn it on.");
+    if (!config.channels.length) {
+      const access = config.access || { plan: [], switchedOn: [] };
+      const missing = [];
+      if (!access.plan.length) missing.push("the WhatsApp or Telegram section in your plan");
+      if (!access.switchedOn.length) missing.push("a sending channel switched on for your account");
+      const needs = missing.length ? missing.join(" and ") : "a channel that matches your plan (WhatsApp channels need the WhatsApp section, Telegram needs the Telegram section)";
+      return emptyState("Messages aren't turned on yet", `To send messages, your account needs ${needs}. Ask EduCobra to add it. (Owner: Teachers → this teacher → Change plan, and Messaging channels.)`);
+    }
     const first = rows[0];
     const sample = first ? renderTemplate(draft, first.values) : "";
     return html`<div class="grid grid-main compose-grid">

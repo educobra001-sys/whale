@@ -19,7 +19,8 @@ const teacherRoutes = [
   { path: "/booklets", feature: "booklets", view: "teacher/booklets", title: "Booklets", perm: "booklets", nav: { group: "Teaching", icon: "book" } },
   { path: "/follow-up", feature: "follow_up", view: "teacher/follow-up", title: "Follow-up", perm: "follow_up", nav: { group: "Engagement", icon: "target" } },
   { path: "/announcements", feature: "announcements", view: "teacher/announcements", title: "Announcements", perm: "announcements", nav: { group: "Engagement", icon: "megaphone" } },
-  { path: "/messages", feature: ["telegram", "whatsapp"], view: "teacher/messages", title: "Messages", perm: "messages", nav: { group: "Engagement", icon: "phone" } },
+  // Always in the menu: the page itself says what's missing (plan section or channel) instead of hiding.
+  { path: "/messages", view: "teacher/messages", title: "Messages", perm: "messages", nav: { group: "Engagement", icon: "phone" } },
   { path: "/leaderboard", feature: "leaderboard", view: "teacher/leaderboard", title: "Leaderboard", perm: "students_view", nav: { group: "Engagement", icon: "trophy" } },
   { path: "/wallet", feature: "wallet", view: "teacher/wallet", title: "Wallet & payments", perm: "wallet", nav: { group: "Money", icon: "wallet" } },
   { path: "/finance", feature: "finance", view: "teacher/finance", title: "Finance", perm: "finance", nav: { group: "Money", icon: "chart" } },
