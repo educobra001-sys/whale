@@ -860,3 +860,5 @@ a.tile:hover, button.tile:hover { border-color: var(--accent); }
   .qr-wa { width: 220px; }
   .table-messages textarea { min-width: 0; }
 }
+
+.input-sm.input-error { border-color: var(--danger); background: var(--danger-soft); }

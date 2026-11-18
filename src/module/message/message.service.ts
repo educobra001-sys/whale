@@ -1,5 +1,5 @@
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../common/exceptions/error.exceptions"
-import { personName, sameId, whatsappNumber } from "../../common/service/helpers"
+import { checkPhone, personName, sameId, whatsappNumber } from "../../common/service/helpers"
 import { getMessagingSettings } from "../../common/service/settings"
 import { runAsPlatform } from "../../common/service/tenantContext"
 import { env } from "../../config/env.service"
@@ -10,7 +10,7 @@ import { waitUntil } from "@vercel/functions"
 import { deliverNow } from "../../worker"
 import { fastQueue } from "./message.queue"
 import { telegramEnabled } from "./telegram.service"
-import { kickStuckWhatsapp, kickWhatsapp, PLATFORM, senderFor } from "./whatsappWeb.service"
+import { checkNumbers, kickStuckWhatsapp, kickWhatsapp, PLATFORM, senderFor } from "./whatsappWeb.service"
 
 // Everything a message can mention, filled in per student. {key} in a message is replaced by the value.
 export const VARIABLES = [
@@ -168,7 +168,7 @@ class MessageService {
             const centerName = centers.find((center) => sameId(center._id, entry?.center))?.name ?? ""
             const values = this.values(ctx, student, entry, row, centerName)
             const studentLinks = links.filter((link) => sameId(link.student, student._id))
-            const telegram = { parent: studentLinks.some((link) => link.kind === "parent"), student: studentLinks.some((link) => link.kind === "student") }
+            const telegram = { parent: studentLinks.some((link) => link.kind === "parent"), student: studentLinks.some((link) => link.kind === "student"), any: studentLinks.length > 0 }
             const targets: { recipient: "parent" | "student"; to: string }[] = []
             if (recipient !== "student") targets.push({ recipient: "parent", to: student.parentPhone || (recipient === "parent" ? student.phone : "") || "" })
             if (recipient !== "parent" && (recipient === "student" || student.phone !== student.parentPhone)) targets.push({ recipient: "student", to: student.phone || "" })
@@ -182,6 +182,7 @@ class MessageService {
                     parentPhone: student.parentPhone,
                     recipient: target.recipient,
                     to: target.to,
+                    phoneCheck: (({ ok, reason }) => ({ ok, reason }))(checkPhone(target.to)),
                     telegram,
                     values,
                     body: render(template, values),
@@ -242,8 +243,35 @@ class MessageService {
         const { channel, type } = body
         if (!this.enabledChannels(teacher, options).includes(channel)) throw new ForbiddenError("This channel isn't activated for your account")
         const settings = await getMessagingSettings()
-        const items = body.items.filter((item: any) => channel === "telegram" || String(item.to ?? "").trim())
+        let items = body.items.filter((item: any) => channel === "telegram" || String(item.to ?? "").trim())
+        if (channel === "telegram") {
+            // One Telegram message per student: a "parent" and a "student" row become one row for every linked chat,
+            // so a chat linked as both never gets it twice.
+            const byStudent = new Map<string, any>()
+            const merged: any[] = []
+            for (const item of items) {
+                const key = item.student ? String(item.student) : ""
+                const first = key ? byStudent.get(key) : null
+                if (first) {
+                    if (first.recipient !== item.recipient) first.recipient = "both"
+                    continue
+                }
+                const copy = { ...item }
+                if (key) byStudent.set(key, copy)
+                merged.push(copy)
+            }
+            items = merged
+        }
         if (!items.length) throw new BadRequestError(channel === "telegram" ? "Add at least one student" : "None of the rows has a phone number")
+        // Wrong numbers never go out: they're recorded as failed with the reason, so the history shows them.
+        const wrong = new Map<any, string>()
+        if (channel !== "telegram") {
+            for (const item of items) {
+                const checked = checkPhone(item.to)
+                if (!checked.ok) wrong.set(item, `Wrong number: ${checked.reason}`)
+            }
+            if (wrong.size === items.length) throw new BadRequestError(`None of the ${items.length} numbers is a valid WhatsApp number. ${[...wrong.values()][0]}.`)
+        }
         if (channel === "whatsapp_api") {
             const tooLong = items.find((item: any) => item.body.length > settings.maxChars)
             if (tooLong) throw new BadRequestError(`The message to ${tooLong.name} is ${tooLong.body.length} letters. The limit is ${settings.maxChars}.`)
@@ -270,12 +298,15 @@ class MessageService {
             recipient: item.recipient ?? "parent",
             sender: sender?.account ?? PLATFORM,
             ...(simulated ? { status: "simulated", sentAt: new Date() } : {}),
+            ...(wrong.has(item) ? { status: "failed", error: wrong.get(item) } : {}),
         })))
+        const ready = rows.filter((row: any) => row.status === "queued" || row.status === "simulated")
         if (channel === "whatsapp_link") {
             return {
                 batch: batch._id,
                 delaySeconds: settings.delaySeconds,
-                links: rows.map((row: any) => ({
+                skipped: wrong.size,
+                links: ready.map((row: any) => ({
                     _id: row._id, name: row.name,
                     url: `https://wa.me/${whatsappNumber(row.to)}?text=${encodeURIComponent(row.body)}`,
                 })),
@@ -283,16 +314,22 @@ class MessageService {
         }
         if (channel === "whatsapp_web") {
             if (!simulated) kickWhatsapp(sender!.account)
-            return { batch: batch._id, queued: rows.length, delaySeconds: batch.delaySeconds, simulated }
+            return { batch: batch._id, queued: ready.length, skipped: wrong.size, delaySeconds: batch.delaySeconds, simulated }
         }
-        const jobs = rows.map((row: any) => ({ name: "send", data: { teacher: teacherId, item: String(row._id) } }))
+        const jobs = ready.map((row: any) => ({ name: "send", data: { teacher: teacherId, item: String(row._id) } }))
         if (env.serverless) {
             // Keeps running after the reply is sent, so the screen doesn't wait for every message.
             waitUntil(deliverNow(jobs).catch((error) => console.error("[messages]", error)))
         } else {
             await fastQueue().addBulk(jobs)
         }
-        return { batch: batch._id, queued: jobs.length, delaySeconds: batch.delaySeconds }
+        return { batch: batch._id, queued: jobs.length, skipped: wrong.size, delaySeconds: batch.delaySeconds }
+    }
+
+    // Before sending: wrong numbers, and which ones aren't on WhatsApp (asked through the linked number).
+    async checkNumbers(teacherId: string, phones: string[]) {
+        const sender = await senderFor(teacherId)
+        return checkNumbers(sender.account, [...new Set(phones.map((phone) => String(phone ?? "").trim()))])
     }
 
     async reportLink(itemId: string, status: string) {

@@ -46,6 +46,7 @@ export const messageRoutes = (permitted: RequestHandler, owner = false) => {
     router.post("/messages/preview", permitted, validation(previewSchema), send((req) => messageService.preview(req.teacherId, req.body)))
     router.post("/messages/preview-one", permitted, validation(previewOneSchema), send((req) => messageService.previewOne(req.teacherId, req.body)))
     router.post("/messages/send", permitted, rateLimit({ name: "messages", windowSeconds: 60, max: 30 }), validation(sendSchema), send((req) => messageService.send(req.teacherId, req.actor.id, req.body, options), "Messages queued", 201))
+    router.post("/messages/check-numbers", permitted, rateLimit({ name: "check-numbers", windowSeconds: 60, max: 10 }), validation(z.object({ phones: z.array(z.string().max(40)).min(1).max(5000) })), send((req) => messageService.checkNumbers(req.teacherId, req.body.phones)))
     router.patch("/messages/items/:id", permitted, validation(z.object({ status: z.enum(["sent", "skipped"]) })), send((req) => messageService.reportLink(params(req.params.id), req.body.status)))
     router.get("/messages/batches", permitted, send(() => messageService.batches()))
     router.get("/messages/batches/:id", permitted, send((req) => messageService.batchItems(params(req.params.id))))

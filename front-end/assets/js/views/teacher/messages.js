@@ -9,6 +9,7 @@ export default async function messages(ctx) {
     preview: (body) => api.teacher.previewMessages(body),
     previewOne: (body) => api.teacher.previewMessage(body),
     send: (body) => api.teacher.sendMessages(body),
+    checkNumbers: (phones) => api.teacher.checkMessageNumbers(phones),
     report: (itemId, status) => api.teacher.reportMessage(itemId, status),
     batches: () => api.teacher.messageBatches(),
     batch: (batchId) => api.teacher.messageBatch(batchId),

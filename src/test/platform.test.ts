@@ -248,6 +248,34 @@ test("owner writes messages for a teacher, with every channel, and sends from th
     assert.equal((await call("GET", `/owner/teachers/${teacher.id}/messages/config`, teacher.token)).status, 403)
 })
 
+test("wrong phone numbers are flagged before sending and never sent", async () => {
+    const teacher = await makeTeacher(owner)
+    await call("PATCH", `/owner/teachers/${teacher.id}/channels`, owner, { whatsapp_link: true, whatsapp_api: true })
+    const good = await makeStudent(teacher.token, { firstName: "Good" })
+    const preview = await call("POST", "/teacher/messages/preview", teacher.token, { audience: "all", type: "marketing", template: "Hi {first_name}" })
+    const row = preview.data.items.find((item: any) => item.student === good.id)
+    assert.deepEqual(row.phoneCheck, { ok: true, reason: "" })
+    const items = [
+        { ...row },
+        { ...row, name: "Missing zero", to: row.to.slice(1) },
+        { ...row, name: "Too short", to: "0101234567" },
+        { ...row, name: "Not mobile", to: "01312345678" },
+    ]
+    const checked = await call("POST", "/teacher/messages/check-numbers", teacher.token, { phones: items.map((item) => item.to) })
+    assert.equal(checked.status, 200, checked.message)
+    assert.deepEqual(checked.data.numbers.map((item: any) => item.ok), [true, true, false, false])
+    assert.equal(checked.data.numbers[1].international, `20${row.to.slice(1)}`)
+    const sent = await call("POST", "/teacher/messages/send", teacher.token, { type: "marketing", channel: "whatsapp_link", items })
+    assert.equal(sent.status, 201, sent.message)
+    assert.equal(sent.data.skipped, 2)
+    assert.equal(sent.data.links.length, 2)
+    assert.ok(sent.data.links.every((link: any) => link.url.startsWith("https://wa.me/201")))
+    const batch = await call("GET", `/teacher/messages/batches/${sent.data.batch}`, teacher.token)
+    assert.match(batch.data.items.find((item: any) => item.name === "Too short").error, /Wrong number: Wrong length/)
+    const none = await call("POST", "/teacher/messages/send", teacher.token, { type: "marketing", channel: "whatsapp_api", items: [items[2]] })
+    assert.equal(none.status, 400)
+})
+
 test("whatsapp numbers: platform and per-teacher status", async () => {
     const teacher = await makeTeacher(owner)
     const platform = await call("GET", "/owner/whatsapp/platform", owner)

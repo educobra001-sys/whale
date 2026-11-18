@@ -22,6 +22,28 @@ const RECIPIENTS = [
 ];
 const STATUS_TONE = { sent: "success", delivered: "success", read: "success", simulated: "info", queued: "muted", failed: "danger", skipped: "muted" };
 
+// Same rules as the server's checkPhone: Egyptian mobiles 010/011/012/015 + 8 digits, slips like a missing 0 fixed.
+export function checkPhone(phone) {
+  const digits = String(phone ?? "")
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+    .replace(/[^\d]/g, "")
+    .replace(/^00/, "");
+  if (!digits) return { ok: false, reason: "No phone number" };
+  let local = "";
+  if (/^1\d{9}$/.test(digits)) local = `0${digits}`;
+  else if (/^0\d{10}$/.test(digits)) local = digits;
+  else if (/^20\d{10}$/.test(digits)) local = `0${digits.slice(2)}`;
+  else if (/^200\d{10}$/.test(digits)) local = digits.slice(2);
+  if (local || digits.startsWith("0") || digits.startsWith("20")) {
+    if (!local) return { ok: false, reason: `Wrong length: an Egyptian mobile has 11 digits (01xxxxxxxxx), this has ${digits.replace(/^20/, "0").length}` };
+    if (!/^01[0125]\d{8}$/.test(local)) return { ok: false, reason: "Egyptian mobiles start with 010, 011, 012 or 015" };
+    return { ok: true, reason: "" };
+  }
+  if (digits.length >= 10 && digits.length <= 15) return { ok: true, reason: "" };
+  return { ok: false, reason: "Too short to be a phone number" };
+}
+
 export const renderTemplate = (template, values) =>
   String(template || "").replace(/\{(\w+)\}/g, (whole, key) => (values && key in values ? String(values[key] ?? "") : whole));
 
@@ -105,10 +127,21 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
     <div id="review"></div>`;
   }
 
+  const usesPhone = () => form.channel !== "telegram";
+  const wrongRows = () => (usesPhone() ? rows.filter((row) => row.phoneCheck && !row.phoneCheck.ok) : []);
+  const telegramReady = (row) => Boolean(row.telegram?.any ?? (row.telegram?.parent || row.telegram?.student));
+
   function telegramMark(row) {
     if (form.channel !== "telegram") return "";
-    const ok = row.recipient === "student" ? row.telegram?.student : row.telegram?.parent;
-    return ok ? badge("Telegram ✓", "success") : badge("No Telegram", "warn");
+    if (row.telegram?.[row.recipient]) return badge("Telegram ✓", "success");
+    // No chat of this kind: the message goes to the chat linked as the other one (often the same phone).
+    if (telegramReady(row)) return badge(`Telegram ✓ (${row.recipient === "parent" ? "student's" : "parent's"} chat)`, "info");
+    return badge("No Telegram", "warn");
+  }
+
+  function phoneMark(row) {
+    if (!usesPhone() || !row.phoneCheck || row.phoneCheck.ok) return "";
+    return html`<span class="small text-danger strong">${row.phoneCheck.reason}</span>`;
   }
 
   function rowHtml(row, index) {
@@ -119,7 +152,9 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
       <td class="cell-check"><input type="checkbox" data-include ${row.include ? html`checked` : ""} aria-label="Include ${row.name}"></td>
       <td data-label="Student"><strong>${row.name}</strong><br><span class="muted small">${row.userID || ""}</span>
         <div class="status-chips mt-xs">${badge(row.recipient === "student" ? "Student" : "Parent", row.recipient === "student" ? "info" : "accent")}${telegramMark(row)}</div></td>
-      <td data-label="Send to"><input class="input-sm" data-field="to" value="${row.to || ""}" placeholder="${form.channel === "telegram" ? "Telegram" : "Phone"}" aria-label="Phone for ${row.name}"></td>
+      <td data-label="Send to">${usesPhone()
+        ? html`<input class="input-sm ${row.phoneCheck && !row.phoneCheck.ok ? "input-error" : ""}" data-field="to" value="${row.to || ""}" placeholder="Phone" aria-label="Phone for ${row.name}"><div data-phone-slot>${phoneMark(row)}</div>`
+        : html`<span class="muted small">Linked Telegram chat</span>`}</td>
       <td data-label="Message"><textarea rows="3" data-field="body" aria-label="Message for ${row.name}">${row.body}</textarea>
         <span class="small ${over ? "text-danger strong" : "muted"}" data-count>${row.edited ? "Edited · " : ""}${row.body.length}${max ? ` / ${max}` : ""}</span></td>
       <td class="num"><button class="icon-btn" type="button" data-action="remove-row" aria-label="Remove ${row.name}">${icon("close", 16)}</button></td>
@@ -134,10 +169,16 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
       return;
     }
     const count = selected().length;
-    mount(host, html`<section class="card card-flush mb mt">
+    const wrong = wrongRows();
+    const canCheck = usesPhone() && rows.length;
+    mount(host, html`${wrong.length ? html`<div class="notice notice-danger row-between mt">
+        <span><strong>${wrong.length} wrong number${wrong.length === 1 ? "" : "s"}</strong>: unticked, they won't be sent. Fix them in the list, or take them out.</span>
+        <button class="btn btn-sm btn-danger" type="button" data-action="remove-wrong">Remove wrong numbers</button></div>` : ""}
+      <section class="card card-flush mb mt">
       <div class="card-head"><h3>${count} of ${rows.length} selected</h3>
         <div class="row">
           <input id="row-search" class="input-sm" type="search" placeholder="Find in the list" value="${search}" aria-label="Find in the list">
+          ${canCheck ? html`<button class="btn btn-secondary btn-sm" type="button" data-action="check-numbers" title="Checks every number and asks WhatsApp which ones have an account">${icon("check", 15)} Check numbers</button>` : ""}
           <button class="btn btn-ghost btn-sm" type="button" data-action="all">All</button><button class="btn btn-ghost btn-sm" type="button" data-action="none">None</button>
           <input id="add-student" class="input-sm" placeholder="Student code or phone" aria-label="Add a student"><button class="btn btn-secondary btn-sm" type="button" data-action="add">${icon("plus", 15)} Add</button>
         </div></div>
@@ -343,6 +384,21 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
   stops.push(on(root, "input", "#review [data-field]", (event, input) => {
     const row = rows[Number(input.closest("tr").dataset.index)];
     row[input.dataset.field] = input.value;
+    if (input.dataset.field === "to") {
+      const wasWrong = row.phoneCheck && !row.phoneCheck.ok;
+      row.phoneCheck = checkPhone(input.value);
+      input.classList.toggle("input-error", !row.phoneCheck.ok);
+      const slot = input.parentElement.querySelector("[data-phone-slot]");
+      if (slot) mount(slot, phoneMark(row));
+      // A number that becomes right is ticked again.
+      if (wasWrong && row.phoneCheck.ok) {
+        row.include = true;
+        const tr = input.closest("tr");
+        tr.classList.remove("row-off");
+        tr.querySelector("[data-include]").checked = true;
+        refreshCounts();
+      }
+    }
     if (input.dataset.field === "body") {
       row.edited = input.value !== renderTemplate(draft, row.values);
       updateCount(input, row);
@@ -388,14 +444,44 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
       }
       const data = await withBusy(button, () => client.preview(previewBody()));
       if (data) {
-        rows = data.items.map((row) => ({ ...row, include: form.channel !== "telegram" || Boolean(row.recipient === "student" ? row.telegram?.student : row.telegram?.parent) }));
+        rows = data.items.map((row) => ({ ...row, include: form.channel === "telegram" ? telegramReady(row) : row.phoneCheck?.ok !== false }));
         search = "";
         render();
         if (!rows.length) toast("No student matches these choices.", "danger");
       }
     }
+    if (action === "remove-wrong") {
+      const before = rows.length;
+      rows = rows.filter((row) => !(row.phoneCheck && !row.phoneCheck.ok));
+      toast(`${before - rows.length} wrong number${before - rows.length === 1 ? "" : "s"} removed.`);
+      renderReview();
+    }
+    if (action === "check-numbers") {
+      const phones = [...new Set(rows.map((row) => String(row.to || "").trim()).filter(Boolean))];
+      if (!phones.length) return;
+      const result = await withBusy(button, () => client.checkNumbers(phones));
+      if (!result) return;
+      const byPhone = new Map(result.numbers.map((item) => [item.phone, item]));
+      let bad = 0;
+      for (const row of rows) {
+        const found = byPhone.get(String(row.to || "").trim());
+        row.phoneCheck = found ? { ok: found.ok, reason: found.reason } : checkPhone(row.to);
+        if (!row.phoneCheck.ok) {
+          row.include = false;
+          bad += 1;
+        }
+      }
+      renderReview();
+      const note = {
+        checked: "",
+        busy: " WhatsApp wasn't asked because the number is busy sending; only the format was checked.",
+        not_linked: " No WhatsApp number is linked, so only the format was checked.",
+        unavailable: " WhatsApp didn't answer, so only the format was checked.",
+      }[result.whatsapp] || "";
+      toast(bad ? `${bad} number${bad === 1 ? "" : "s"} can't receive WhatsApp.${note}` : `All numbers look right.${note}`, bad ? "danger" : "success", 7000);
+    }
     if (action === "all" || action === "none") {
-      for (const row of rows) row.include = action === "all";
+      for (const row of rows) row.include = action === "all" && (!usesPhone() || row.phoneCheck?.ok !== false);
       renderReview();
     }
     if (action === "remove-row") {
@@ -424,7 +510,8 @@ export async function messagesScreen(ctx, client, { title = "Messages", eyebrow 
         await runLinks(result);
         return;
       }
-      toast(result.simulated ? `${result.queued} messages recorded as simulated (no number linked).` : `${result.queued} messages are on their way.`);
+      const skipped = result.skipped ? ` ${result.skipped} with a wrong number were skipped.` : "";
+      toast(result.simulated ? `${result.queued} messages recorded as simulated (no number linked).${skipped}` : `${result.queued} messages are on their way.${skipped}`);
       const total = result.queued;
       rows = [];
       renderReview();

@@ -13,7 +13,36 @@ export const normalizePhone = (phone: unknown) => {
     return digits.startsWith("20") && digits.length === 12 ? `0${digits.slice(2)}` : digits
 }
 
+export type PhoneCheck = { ok: boolean; international: string; reason: string }
+
+// Whether a number can receive WhatsApp, and its international form ("201012345678").
+// Fixes the usual slips: missing leading 0 (1012345678), +20 / 0020 prefixes, spaces and dashes,
+// Arabic-Indic digits. Egyptian mobiles must be 010, 011, 012 or 015 followed by 8 digits.
+export const checkPhone = (phone: unknown): PhoneCheck => {
+    const western = String(phone ?? "")
+        .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+    const digits = western.replace(/[^\d]/g, "").replace(/^00/, "")
+    const fail = (reason: string): PhoneCheck => ({ ok: false, international: digits, reason })
+    if (!digits) return fail("No phone number")
+    let local = ""
+    if (/^1\d{9}$/.test(digits)) local = `0${digits}`
+    else if (/^0\d{10}$/.test(digits)) local = digits
+    else if (/^20\d{10}$/.test(digits)) local = `0${digits.slice(2)}`
+    else if (/^200\d{10}$/.test(digits)) local = digits.slice(2)
+    if (local || digits.startsWith("0") || digits.startsWith("20")) {
+        if (!local) return fail(`Wrong length: an Egyptian mobile has 11 digits (01xxxxxxxxx), this has ${digits.replace(/^20/, "0").length}`)
+        if (!/^01[0125]\d{8}$/.test(local)) return fail("Egyptian mobiles start with 010, 011, 012 or 015")
+        return { ok: true, international: `20${local.slice(1)}`, reason: "" }
+    }
+    // Another country, already written with its country code.
+    if (digits.length >= 10 && digits.length <= 15) return { ok: true, international: digits, reason: "" }
+    return fail("Too short to be a phone number")
+}
+
 export const whatsappNumber = (phone: unknown) => {
+    const checked = checkPhone(phone)
+    if (checked.ok) return checked.international
     const local = normalizePhone(phone)
     return local.startsWith("0") ? `20${local.slice(1)}` : local
 }

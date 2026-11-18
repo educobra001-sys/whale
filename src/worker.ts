@@ -31,15 +31,13 @@ const sendByApi = async (to: string, body: string) => {
 
 const sendByTelegram = async (item: any, body: string) => {
     if (!(await telegramEnabled())) throw new Simulated()
-    const filter: any = { student: item.student }
-    if (item.recipient === "parent" || item.recipient === "student") filter.kind = item.recipient
-    const links = item.student ? await runAsPlatform(() => repos.telegramLink.findall({ filter })) : []
-    if (!links.length) {
-        throw new Error(item.recipient === "student"
-            ? "This student hasn't opened the Telegram bot yet"
-            : item.recipient === "parent" ? "The parent hasn't opened the Telegram bot yet" : "Nobody linked Telegram for this student yet")
-    }
-    const chats = [...new Set(links.map((link) => link.chatId))]
+    // Telegram goes to the chats saved for the student (by chat id), not to a phone number.
+    const all = item.student ? await runAsPlatform(() => repos.telegramLink.findall({ filter: { student: item.student } })) : []
+    if (!all.length) throw new Error("Nobody opened the Telegram bot and shared a number matching this student yet")
+    // The chats of the chosen kind; if there are none (the parent and the student often share one phone),
+    // any chat linked to the student.
+    const ofKind = item.recipient === "parent" || item.recipient === "student" ? all.filter((link) => link.kind === item.recipient) : all
+    const chats = [...new Set((ofKind.length ? ofKind : all).map((link) => link.chatId))]
     await Promise.all(chats.map((chatId) => sendTelegram(chatId, body)))
 }
 

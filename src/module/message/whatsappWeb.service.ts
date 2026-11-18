@@ -1,7 +1,7 @@
 import crypto from "node:crypto"
 import QRCode from "qrcode"
 import { waitUntil } from "@vercel/functions"
-import { whatsappNumber } from "../../common/service/helpers"
+import { checkPhone } from "../../common/service/helpers"
 import { redisService } from "../../common/service/redisService"
 import { getMessagingSettings } from "../../common/service/settings"
 import { runAsPlatform } from "../../common/service/tenantContext"
@@ -112,7 +112,9 @@ const mongoAuth = async (account: string, baileys: any) => {
     }
     return {
         state: { creds, keys },
-        registered: Boolean(saved && creds.registered),
+        // Linked = the login holds the account id. (creds.registered is only set by pairing-code links,
+        // never by QR links; Baileys itself checks creds.me to decide between logging in and showing a QR.)
+        registered: Boolean(saved && creds.me?.id),
         saveCreds: () => track(whatsappAuthModel.updateOne({ _id: id("creds") }, { $set: { account, value: encode(creds) } }, { upsert: true })),
         flush: async () => {
             while (pending.size) await Promise.allSettled([...pending])
@@ -341,19 +343,72 @@ export const unlinkWhatsapp = async (account = PLATFORM) => {
 
 const MAX_TRIES = 3
 
+// Asks WhatsApp which of these numbers have an account. WhatsApp only answers for the ones that do,
+// so a number missing from the answer has no WhatsApp. Returns null when WhatsApp didn't answer at all.
+const lookup = async (sock: any, numbers: string[]) => {
+    const found = new Map<string, string>()
+    for (let start = 0; start < numbers.length; start += 50) {
+        const chunk = numbers.slice(start, start + 50)
+        const result: any[] | undefined = await sock.onWhatsApp(...chunk)
+        if (!Array.isArray(result)) return null
+        for (const row of result) {
+            if (!row?.exists || !row.jid) continue
+            found.set(String(row.jid).split(/[:@]/)[0]!, row.jid)
+        }
+    }
+    return found
+}
+
 const sendOne = async (sock: any, item: any) => {
-    const number = whatsappNumber(item.to)
-    if (!/^\d{8,15}$/.test(number)) return { error: "This isn't a valid phone number" }
+    const checked = checkPhone(item.to)
+    if (!checked.ok) return { error: `Wrong number: ${checked.reason}` }
+    const number = checked.international
     let jid = `${number}@s.whatsapp.net`
     try {
-        const [check]: any = (await sock.onWhatsApp(number)) ?? []
-        if (check && check.exists === false) return { error: "This number isn't on WhatsApp" }
-        if (check?.jid) jid = check.jid
+        const found = await lookup(sock, [number])
+        if (found && !found.has(number)) return { error: "This number isn't on WhatsApp" }
+        jid = found?.get(number) ?? jid
     } catch {
-        /* the check is optional */
+        /* WhatsApp didn't answer the check: send anyway */
     }
     const sent = await sock.sendMessage(jid, { text: item.body })
     return { waMessageId: sent?.key?.id as string | undefined }
+}
+
+// Before sending: which numbers are wrong, and (when a number is linked and free) which aren't on WhatsApp.
+export const checkNumbers = async (account: string, phones: string[]) => {
+    const results = new Map<string, { ok: boolean; reason: string; international: string }>()
+    for (const phone of phones) results.set(phone, checkPhone(phone))
+    const valid = [...new Set([...results.values()].filter((row) => row.ok).map((row) => row.international))]
+    let whatsapp: "checked" | "busy" | "not_linked" | "unavailable" = "unavailable"
+    if (valid.length && (await accountLinked(account))) {
+        const token = await redisService.lock(lockKey(account), 60_000)
+        if (!token) whatsapp = "busy"
+        else {
+            try {
+                const live = await openSocket(account, { allowQr: false, timeoutMs: 25_000 })
+                try {
+                    const found = await lookup(live.sock, valid)
+                    if (found) {
+                        whatsapp = "checked"
+                        for (const row of results.values()) {
+                            if (row.ok && !found.has(row.international)) Object.assign(row, { ok: false, reason: "This number isn't on WhatsApp" })
+                        }
+                    }
+                } finally {
+                    await live.close()
+                }
+            } catch (error: any) {
+                if (error.code === "not_linked" || error.status === LOGGED_OUT) whatsapp = "not_linked"
+            } finally {
+                await redisService.unlock(lockKey(account), token).catch(() => undefined)
+            }
+        }
+    } else if (valid.length) whatsapp = "not_linked"
+    return {
+        whatsapp,
+        numbers: [...results.entries()].map(([phone, row]) => ({ phone, ok: row.ok, reason: row.reason, international: row.international })),
+    }
 }
 
 // Sends this number's waiting messages, one every `delaySeconds`, until done or out of time.
