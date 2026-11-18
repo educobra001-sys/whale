@@ -1,3 +1,4 @@
+import { isHidden } from "../../common/service/sections"
 import { Router } from "express"
 import QRCode from "qrcode"
 import { ForbiddenError } from "../../common/exceptions/error.exceptions"
@@ -45,6 +46,7 @@ router.get("/referral", send(async (req) => {
 
 // Ads the owner approved to appear outside a teacher's own course.
 router.get("/platform-ads", send(async () => {
+    if (await isHidden("announcements")) return []
     const ads = await repos.announcement.findall({ filter: { platformStatus: "approved", isActive: true }, sort: { updatedAt: -1 }, limit: 12, populate: { path: "teacher" } })
     return ads.map((ad) => ({ ...ad, teacher: teacherPublic(ad.teacher) }))
 }))

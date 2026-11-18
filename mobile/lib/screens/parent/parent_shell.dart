@@ -1,3 +1,4 @@
+import '../../services/sections.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/account.dart';
@@ -117,7 +118,7 @@ class ChildReport extends StatelessWidget {
             StatTile(label: 'Balance', value: money(data['balance']), icon: Icons.account_balance_wallet_outlined, accent: true),
             StatTile(label: 'Points', value: '${data['points'] ?? 0}', icon: Icons.emoji_events_outlined),
             StatTile(label: 'Attendance', value: '${stats['attendanceRate'] ?? 0}%', hint: '${stats['present'] ?? 0} present · ${stats['absent'] ?? 0} absent'),
-            StatTile(label: 'Homework', value: '${stats['homeworkRate'] ?? 0}%', hint: 'Exam average ${stats['examAvg'] ?? 0}%'),
+            StatTile(label: 'Homework', value: '${stats['homeworkRate'] ?? 0}%', hint: Sections.on('exams') ? 'Exam average ${stats['examAvg'] ?? 0}%' : null),
           ]),
           if (phone.isNotEmpty)
             SectionCard(
@@ -148,6 +149,7 @@ class ChildReport extends StatelessWidget {
               for (final row in asList(data['sessions'])) Padding(padding: const EdgeInsets.only(bottom: 12), child: AttendanceLine(row: row)),
             ]),
           ),
+          if (Sections.on('exams')) ...[
           const Gap(),
           SectionCard(
             title: 'Exams',
@@ -157,6 +159,7 @@ class ChildReport extends StatelessWidget {
                 InfoRow('${asMap(row['exam'])['name']}', row['score'] == null ? 'No score' : '${row['score']} / ${asMap(row['exam'])['maxScore']}'),
             ]),
           ),
+          ],
           const Gap(),
           SectionCard(
             title: 'Payments',

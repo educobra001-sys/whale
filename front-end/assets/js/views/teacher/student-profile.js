@@ -1,3 +1,4 @@
+import { sectionOn } from "../../core/sections.js";
 import { LANGUAGES } from "../../core/config.js";
 import { icon } from "../../core/icons.js";
 import {
@@ -190,7 +191,7 @@ export default async function studentProfile(ctx) {
         ${statTile("Points", student.points ?? 0)}
         ${statTile("Attendance", `${stats.attendanceRate}%`, { hint: `${stats.present} present · ${stats.absent} absent` })}
         ${statTile("Homework done", `${stats.homeworkRate}%`)}
-        ${statTile("Exam average", `${stats.examAvg}%`)}
+        ${sectionOn("exams") ? statTile("Exam average", `${stats.examAvg}%`) : ""}
       </section>
 
       ${tabs(
@@ -202,7 +203,7 @@ export default async function studentProfile(ctx) {
           { key: "payments", label: "Payments", count: history.transactions.length },
           { key: "booklets", label: "Booklets", count: history.booklets.length },
           { key: "lessons", label: "Lessons" },
-        ],
+        ].filter((item) => !["exams", "homework", "booklets", "lessons"].includes(item.key) || sectionOn(item.key)),
         tab,
       )}
       <div id="tab-body">${tab === "overview" ? overviewTab() : html`<div class="card card-flush">${tables[tab]()}</div>`}</div>

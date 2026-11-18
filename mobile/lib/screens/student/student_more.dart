@@ -1,3 +1,4 @@
+import '../../services/sections.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -18,10 +19,10 @@ class StudentMore extends StatelessWidget {
   Widget build(BuildContext context) {
     void open(String title, Widget body) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: Text(title)), body: body)));
     final items = <(IconData, String, Widget)>[
-      (Icons.workspace_premium_outlined, 'Exams', ExamsScreen(teacherId: teacherId)),
-      (Icons.menu_book_outlined, 'Booklets', BookletsScreen(teacherId: teacherId)),
+      if (Sections.on('exams')) (Icons.workspace_premium_outlined, 'Exams', ExamsScreen(teacherId: teacherId)),
+      if (Sections.on('booklets')) (Icons.menu_book_outlined, 'Booklets', BookletsScreen(teacherId: teacherId)),
       (Icons.account_balance_wallet_outlined, 'Wallet', WalletScreen(teacherId: teacherId)),
-      (Icons.emoji_events_outlined, 'Leaderboard', LeaderboardScreen(teacherId: teacherId)),
+      if (Sections.on('leaderboard')) (Icons.emoji_events_outlined, 'Leaderboard', LeaderboardScreen(teacherId: teacherId)),
       (Icons.groups_outlined, 'My teachers', TeachersScreen(onChanged: onTeachersChanged)),
       (Icons.person_outline, 'Account', AccountScreen(account: account)),
     ];

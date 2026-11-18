@@ -15,6 +15,7 @@ import { runAsPlatform } from "../common/service/tenantContext"
 import { dbconnection } from "../db/connection"
 import { repos } from "../db/repository"
 import { closeQueues } from "../module/message/message.queue"
+import { setHiddenSections } from "../common/service/sections"
 import { seedFeatures } from "../module/owner/plan.service"
 import { ALL_FEATURE_KEYS } from "../common/enum/feature.enum"
 
@@ -28,6 +29,8 @@ export const startServer = async () => {
     await mongoose.connection.dropDatabase()
     await Promise.all(Object.values(mongoose.models).map((model) => model.syncIndexes()))
     await seedFeatures()
+    // The tests cover every section, including ones a real deployment hides until they're published.
+    await setHiddenSections([])
     server = createApp().listen(0)
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
     await runAsPlatform(async () => repos.owner.create({ name: "Owner", userName: "owner", email: "owner@test.local", password: await genertateHash({ plainText: "Owner@12345" }) }))

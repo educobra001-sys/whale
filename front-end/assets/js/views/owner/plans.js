@@ -1,9 +1,10 @@
-import { $, html, money, mount, on, pageHeader, table, tabs, toast, withBusy } from "../../core/ui.js";
+import { $, badge, html, money, mount, on, pageHeader, table, tabs, toast, withBusy } from "../../core/ui.js";
 
 export default async function ownerPlans(ctx) {
   const { root, api, query, setQuery } = ctx;
   let tab = query.tab || "build";
-  const [features, teachers] = await Promise.all([api.owner.features(), api.owner.teachers({})]);
+  const [features, teachers, sections] = await Promise.all([api.owner.features(), api.owner.teachers({}), api.owner.sections().catch(() => ({ hidden: [] }))]);
+  let hidden = new Set(sections.hidden || []);
   let email = query.email || "";
   const current = teachers.find((teacher) => teacher.email === email);
   let selected = new Set(current?.features || []);
@@ -14,7 +15,7 @@ export default async function ownerPlans(ctx) {
     return html`<section class="card">
       <div class="card-head"><div><h3>Sections for this teacher</h3><p class="muted small">Anything left unticked won't be available to them.</p></div>
         <div class="row"><button class="btn btn-ghost btn-sm" type="button" data-action="all">All</button><button class="btn btn-ghost btn-sm" type="button" data-action="none">None</button></div></div>
-      <ul class="list">${features.map((feature) => html`<li class="list-item"><label class="check grow"><input type="checkbox" data-feature="${feature.key}" ${selected.has(feature.key) ? html`checked` : ""}> <span><strong>${feature.name}</strong><br><span class="muted small">${feature.description}</span></span></label><span class="strong nowrap">${money(feature.price)}</span></li>`)}</ul>
+      <ul class="list">${features.map((feature) => html`<li class="list-item"><label class="check grow"><input type="checkbox" data-feature="${feature.key}" ${selected.has(feature.key) ? html`checked` : ""}> <span><strong>${feature.name}</strong>${hidden.has(feature.key) ? html` ${badge("Hidden", "muted")}` : ""}<br><span class="muted small">${feature.description}</span></span></label><span class="strong nowrap">${money(feature.price)}</span></li>`)}</ul>
       <div class="plan-total row-between mt"><span>Price per student</span><strong id="plan-total">${money(total())}</strong></div>
       <div class="form-grid mt">
         <div class="field field-full"><label for="plan-email">Teacher email</label>
@@ -36,10 +37,19 @@ export default async function ownerPlans(ctx) {
     )}</section>`;
   }
 
+  // Sections switched off here are hidden for everyone (website and app) until published, whatever the plan.
+  function publishTab() {
+    return html`<section class="card">
+      <div class="card-head"><div><h3>Published sections</h3><p class="muted small">Untick a section to hide it from every teacher, assistant, student and parent until it's ready. Tick it to publish it.</p></div></div>
+      <ul class="list">${features.map((feature) => html`<li class="list-item"><label class="check grow"><input type="checkbox" data-publish="${feature.key}" ${hidden.has(feature.key) ? "" : html`checked`}> <span><strong>${feature.name}</strong><br><span class="muted small">${feature.description}</span></span></label>${hidden.has(feature.key) ? badge("Hidden", "muted") : badge("Published", "success")}</li>`)}</ul>
+      <div class="row mt"><button class="btn btn-primary" type="button" data-action="save-sections">Save</button></div>
+    </section>`;
+  }
+
   function render() {
     mount(root, html`${pageHeader({ eyebrow: "EduCobra", title: "Plans & sections", text: "Every section has a price. A teacher's price per student is the sum of the sections you tick." })}
-      ${tabs([{ key: "build", label: "Build a plan" }, { key: "prices", label: "Section prices" }], tab)}
-      <div class="mt">${tab === "build" ? buildTab() : pricesTab()}</div>`);
+      ${tabs([{ key: "build", label: "Build a plan" }, { key: "prices", label: "Section prices" }, { key: "publish", label: "Published sections", count: hidden.size ? `${hidden.size} hidden` : undefined }], tab)}
+      <div class="mt">${tab === "build" ? buildTab() : tab === "prices" ? pricesTab() : publishTab()}</div>`);
   }
 
   const stops = [
@@ -69,6 +79,14 @@ export default async function ownerPlans(ctx) {
       if (action === "all" || action === "none") {
         selected = new Set(action === "all" ? features.map((feature) => feature.key) : []);
         render();
+      }
+      if (action === "save-sections") {
+        const next = features.filter((feature) => !$(`[data-publish="${feature.key}"]`, root)?.checked).map((feature) => feature.key);
+        const result = await withBusy(button, () => api.owner.setSections(next), "Sections saved. Pages update when people refresh.");
+        if (result) {
+          hidden = new Set(result.hidden);
+          render();
+        }
       }
       if (action === "confirm") {
         if (!email) return toast("Enter the teacher's email.", "error");

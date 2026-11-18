@@ -1,3 +1,4 @@
+import { sectionOn } from "../../core/sections.js";
 import {
   $, date, dateTime, emptyState, fullName, gradeLabel, homeworkBadge, html, money, mount, on, pageHeader, relative, statTile, table, tabs, whatsappLink,
 } from "../../core/ui.js";
@@ -38,13 +39,13 @@ export default async function parentHome(ctx) {
       <section class="stats">
         ${statTile("Attendance", `${stats.attendanceRate}%`, { hint: `${stats.present} present · ${stats.absent} absent`, tone: stats.attendanceRate < 75 ? "danger" : "success" })}
         ${statTile("Homework done", `${stats.homeworkRate}%`)}
-        ${statTile("Exam average", `${stats.examAvg}%`)}
+        ${sectionOn("exams") ? statTile("Exam average", `${stats.examAvg}%`) : ""}
         ${statTile("Balance", money(report.balance), { tone: report.balance < 0 ? "danger" : "accent" })}
         ${statTile("Points", report.points)}
       </section>
       <div class="grid grid-main">
         <div>
-          ${tabs([{ key: "sessions", label: "Sessions", count: report.sessions.length }, { key: "exams", label: "Exams", count: report.exams.length }, { key: "payments", label: "Payments" }], tab)}
+          ${tabs([{ key: "sessions", label: "Sessions", count: report.sessions.length }, ...(sectionOn("exams") ? [{ key: "exams", label: "Exams", count: report.exams.length }] : []), { key: "payments", label: "Payments" }], tab)}
           <div id="tab-body">${tabBody()}</div>
         </div>
         <div class="stack">

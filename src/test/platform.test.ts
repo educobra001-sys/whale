@@ -276,6 +276,24 @@ test("wrong phone numbers are flagged before sending and never sent", async () =
     assert.equal(none.status, 400)
 })
 
+test("hidden sections are closed for teachers and students until the owner publishes them", async () => {
+    const teacher = await makeTeacher(owner)
+    const student = await makeStudent(teacher.token)
+    const studentToken = await login("student", student.userID, student.password)
+    assert.equal((await call("GET", "/teacher/lessons", teacher.token)).status, 200)
+    assert.equal((await call("PUT", "/owner/sections", owner, { hidden: ["lessons", "exams"] })).status, 200)
+    assert.deepEqual((await call("GET", "/app-config")).data.hiddenSections, ["lessons", "exams"])
+    assert.equal((await call("GET", "/teacher/lessons", teacher.token)).status, 403)
+    assert.equal((await call("GET", "/teacher/exams", teacher.token)).status, 403)
+    assert.equal((await call("GET", `/student/teachers/${teacher.id}/lessons`, studentToken)).status, 404)
+    assert.equal((await call("GET", `/student/teachers/${teacher.id}/sessions`, studentToken)).status, 200)
+    assert.equal((await call("GET", "/teacher/students", teacher.token)).status !== 403, true)
+    assert.equal((await call("PUT", "/owner/sections", owner, { hidden: ["not-a-section"] })).status, 400)
+    assert.equal((await call("PUT", "/owner/sections", teacher.token, { hidden: [] })).status, 403)
+    assert.equal((await call("PUT", "/owner/sections", owner, { hidden: [] })).status, 200)
+    assert.equal((await call("GET", "/teacher/lessons", teacher.token)).status, 200)
+})
+
 test("whatsapp numbers: platform and per-teacher status", async () => {
     const teacher = await makeTeacher(owner)
     const platform = await call("GET", "/owner/whatsapp/platform", owner)

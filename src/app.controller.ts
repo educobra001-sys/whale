@@ -28,6 +28,7 @@ import { seedFeatures } from "./module/owner/plan.service"
 import { ensureOwner } from "./scripts/createOwner"
 import { previousMonth, startWorkers } from "./worker"
 import billingService from "./module/billing/billing.service"
+import { hiddenSections } from "./common/service/sections"
 import { waitUntil } from "@vercel/functions"
 
 export const createApp = (): Express => {
@@ -63,6 +64,15 @@ export const createApp = (): Express => {
 
     app.get("/check-health", (req, res) => {
         successResponce({ res, message: "healthy", data: { app: "educobra", name: env.appName, redis: redisService.ready } })
+    })
+
+    // Read by the website and the app at start: which sections are hidden until published.
+    app.get("/app-config", async (req, res, next) => {
+        try {
+            successResponce({ res, message: "ok", data: { hiddenSections: await hiddenSections() } })
+        } catch (error) {
+            next(error)
+        }
     })
 
     // Vercel Cron: closes the previous month's invoices on the 1st (the worker does this on a normal server).

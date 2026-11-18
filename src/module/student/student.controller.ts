@@ -10,6 +10,7 @@ import { repos } from "../../db/repository"
 import { auth, platformScope, requireRole } from "../../middleware/auth.middleware"
 import { rateLimit } from "../../middleware/security.middleware"
 import studentService from "./student.service"
+import { sectionOpen } from "../../common/service/sections"
 
 const router: Router = Router()
 const profileSchema = z.object({
@@ -58,22 +59,22 @@ router.delete("/teachers/:id/request", send((req) => studentService.cancelReques
 
 router.get("/teachers/:id/overview", inClass, send((req) => studentService.overview(req.entry)))
 router.get("/teachers/:id/sessions", inClass, send((req) => studentService.sessions(req.entry)))
-router.get("/teachers/:id/lessons", inClass, send((req) => studentService.lessons(req.entry)))
-router.get("/teachers/:id/homework", inClass, send((req) => studentService.homework(req.entry)))
-router.get("/teachers/:id/exams", inClass, send((req) => studentService.exams(req.entry)))
-router.get("/teachers/:id/booklets", inClass, send((req) => studentService.booklets(req.entry)))
+router.get("/teachers/:id/lessons", sectionOpen("lessons"), inClass, send((req) => studentService.lessons(req.entry)))
+router.get("/teachers/:id/homework", sectionOpen("homework"), inClass, send((req) => studentService.homework(req.entry)))
+router.get("/teachers/:id/exams", sectionOpen("exams"), inClass, send((req) => studentService.exams(req.entry)))
+router.get("/teachers/:id/booklets", sectionOpen("booklets"), inClass, send((req) => studentService.booklets(req.entry)))
 router.get("/teachers/:id/transactions", inClass, send((req) => studentService.transactions(req.entry)))
-router.get("/teachers/:id/leaderboard", inClass, send((req) => studentService.board(req.entry)))
+router.get("/teachers/:id/leaderboard", sectionOpen("leaderboard"), inClass, send((req) => studentService.board(req.entry)))
 router.post("/teachers/:id/topups", inClass, validation(topupSchema), send((req) => studentService.topup(req.entry, req.body), "Request sent", 201))
 
 const lesson = loadOwned(repos.lesson, "Lesson")
-router.get("/lessons/:id", lesson, send((req) => {
+router.get("/lessons/:id", sectionOpen("lessons"), lesson, send((req) => {
     if (!req.record.published) throw new NotFoundError("Lesson not found")
     return studentService.lesson(req.record, req.entry)
 }))
-router.post("/lessons/:id/unlock", lesson, send((req) => studentService.unlock(String(req.record.teacher), req.record, req.entry, req.actor.id)))
-router.post("/lessons/:id/progress", lesson, validation(progressSchema), send((req) => studentService.progress(req.record, req.entry, req.body)))
-router.post("/questions/:id/answer", async (req: any, res, next) => {
+router.post("/lessons/:id/unlock", sectionOpen("lessons"), lesson, send((req) => studentService.unlock(String(req.record.teacher), req.record, req.entry, req.actor.id)))
+router.post("/lessons/:id/progress", sectionOpen("lessons"), lesson, validation(progressSchema), send((req) => studentService.progress(req.record, req.entry, req.body)))
+router.post("/questions/:id/answer", sectionOpen("lessons"), async (req: any, res, next) => {
     const questionId = params(req.params.id, "question")
     const record = await runAsPlatform(() => repos.lesson.findone({ filter: { "questions._id": questionId } }))
     if (!record) throw new NotFoundError("Question not found")
@@ -82,8 +83,8 @@ router.post("/questions/:id/answer", async (req: any, res, next) => {
     runWithTeacher(record.teacher, next)
 }, validation(answerSchema), send((req) => studentService.answer(req.record, req.entry, req.params.id, req.body)))
 
-router.post("/homework/:id/submit", loadOwned(repos.homework, "Homework"), validation(submitSchema), send((req) => studentService.submitHomework(req.record, req.entry, req.body), "Homework submitted"))
-router.post("/booklets/:id/reserve", loadOwned(repos.booklet, "Booklet"), validation(reserveSchema), send((req) => studentService.reserve(req.record, req.entry, req.body), "Reserved", 201))
+router.post("/homework/:id/submit", sectionOpen("homework"), loadOwned(repos.homework, "Homework"), validation(submitSchema), send((req) => studentService.submitHomework(req.record, req.entry, req.body), "Homework submitted"))
+router.post("/booklets/:id/reserve", sectionOpen("booklets"), loadOwned(repos.booklet, "Booklet"), validation(reserveSchema), send((req) => studentService.reserve(req.record, req.entry, req.body), "Reserved", 201))
 router.post("/recharge", rateLimit({ name: "recharge", windowSeconds: 600, max: 20 }), validation(rechargeSchema), send((req) => studentService.recharge(req.actor.id, req.body.code), "Balance added"))
 
 export default router

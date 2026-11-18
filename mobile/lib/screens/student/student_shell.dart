@@ -1,3 +1,4 @@
+import '../../services/sections.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -69,13 +70,16 @@ class _StudentShellState extends State<StudentShell> {
         bottomNavigationBar: SafeArea(child: TextButton(onPressed: () => signOut(context), child: const Text('Sign out'))),
       );
     }
+    // Video lessons and online homework only show once the owner has published them.
+    final lessons = Sections.on('lessons'), homework = Sections.on('homework');
     final pages = [
       StudentHome(key: ValueKey('home$teacherId'), teacherId: teacherId, account: widget.account),
       StudentSessions(key: ValueKey('sessions$teacherId'), teacherId: teacherId),
-      LessonsTab(key: ValueKey('lessons$teacherId'), teacherId: teacherId),
-      HomeworkTab(key: ValueKey('homework$teacherId'), teacherId: teacherId),
+      if (lessons) LessonsTab(key: ValueKey('lessons$teacherId'), teacherId: teacherId),
+      if (homework) HomeworkTab(key: ValueKey('homework$teacherId'), teacherId: teacherId),
       StudentMore(key: ValueKey('more$teacherId'), teacherId: teacherId, account: widget.account, onTeachersChanged: _loadTeachers),
     ];
+    final tab = _tab < pages.length ? _tab : 0;
     return Scaffold(
       appBar: AppBar(
         title: active.length > 1
@@ -91,16 +95,16 @@ class _StudentShellState extends State<StudentShell> {
             : Text(fullName(_teacher)),
         actions: [if (_fromCache) const Padding(padding: EdgeInsets.only(right: 12), child: Icon(Icons.cloud_off, color: AppColors.warn))],
       ),
-      body: IndexedStack(index: _tab, children: pages),
+      body: IndexedStack(index: tab, children: pages),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
+        selectedIndex: tab,
         onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.event_available_outlined), selectedIcon: Icon(Icons.event_available), label: 'Sessions'),
-          NavigationDestination(icon: Icon(Icons.play_circle_outline), selectedIcon: Icon(Icons.play_circle), label: 'Lessons'),
-          NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'Homework'),
-          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          const NavigationDestination(icon: Icon(Icons.event_available_outlined), selectedIcon: Icon(Icons.event_available), label: 'Sessions'),
+          if (lessons) const NavigationDestination(icon: Icon(Icons.play_circle_outline), selectedIcon: Icon(Icons.play_circle), label: 'Lessons'),
+          if (homework) const NavigationDestination(icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'Homework'),
+          const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
         ],
       ),
     );
@@ -135,7 +139,7 @@ class StudentHome extends StatelessWidget {
             StatTile(label: 'Balance', value: money(data['balance']), icon: Icons.account_balance_wallet_outlined, accent: true, hint: data['pricePerSession'] != null ? '${money(data['pricePerSession'])} per session' : null),
             StatTile(label: 'Points', value: '${data['points'] ?? 0}', icon: Icons.emoji_events_outlined, hint: data['rank'] != null ? 'Rank ${data['rank']} of ${data['classSize']}' : null),
             StatTile(label: 'Attendance', value: '${stats['attendanceRate'] ?? 0}%', icon: Icons.check_circle_outline, hint: '${stats['present'] ?? 0} present · ${stats['absent'] ?? 0} absent'),
-            StatTile(label: 'Homework', value: '${stats['homeworkRate'] ?? 0}%', icon: Icons.edit_note, hint: 'Exam average ${stats['examAvg'] ?? 0}%'),
+            StatTile(label: 'Homework', value: '${stats['homeworkRate'] ?? 0}%', icon: Icons.edit_note, hint: Sections.on('exams') ? 'Exam average ${stats['examAvg'] ?? 0}%' : null),
           ]),
           OutlinedButton.icon(onPressed: () => rechargeDialog(context, reload), icon: const Icon(Icons.redeem), label: const Text('Recharge with a code')),
           const Gap(),

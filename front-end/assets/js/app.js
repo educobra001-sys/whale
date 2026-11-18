@@ -4,6 +4,7 @@ import { api } from "./core/api.js";
 import { PERMISSIONS, ROLES, STORAGE_KEYS } from "./core/config.js";
 import { icon } from "./core/icons.js";
 import { ROUTES, matchRoute } from "./core/routes.js";
+import { loadSections, sectionOn } from "./core/sections.js";
 import { getAccessToken, getRole, loginUrl, logout, scheduleRefresh } from "./core/session.js";
 import { $, $$, errorState, fullName, html, mount, on, skeleton, avatar, sameId } from "./core/ui.js";
 
@@ -84,6 +85,7 @@ async function loadMe() {
 }
 
 function can(route) {
+  if (!sectionOn(route.feature) || !sectionOn(route.section)) return false;
   if (route.feature && me.features && ![].concat(route.feature).some((key) => me.features.has(key))) return false;
   if (role !== "assistant" || !route.perm) return true;
   const needed = [].concat(route.perm);
@@ -307,6 +309,7 @@ on(document, "click", "[data-print]", () => window.print());
 (async () => {
   mount(shell, html`<div class="boot">${skeleton(3)}</div>`);
   try {
+    await loadSections(api);
     me = await loadMe();
   } catch (error) {
     mount(

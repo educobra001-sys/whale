@@ -110,6 +110,8 @@ const id = (value) => encodeURIComponent(value);
 const place = () => (getRole() === "school" ? "/school" : "/center");
 
 export const api = {
+  // Public: which sections are hidden until published.
+  appConfig: () => send("GET", "/app-config", { auth: false }),
   // ---------- Auth (public) ----------
   auth: {
     signup: (role, body) => send("POST", `/signup/${role}`, { body, auth: false }), // existing: teacher, student, center. new: parent
@@ -292,6 +294,8 @@ export const api = {
     addRule: (teacherId, body) => post(`/owner/teachers/${id(teacherId)}/rules`, body),
     removeRule: (teacherId, ruleId) => del(`/owner/teachers/${id(teacherId)}/rules/${id(ruleId)}`),
     features: () => get("/owner/features"),
+    sections: () => get("/owner/sections"),
+    setSections: (hidden) => put("/owner/sections", { hidden }),
     updateFeature: (featureId, body) => patch(`/owner/features/${id(featureId)}`, body),
     confirmPlan: (body) => post("/owner/plans/confirm", body),
     centers: (query) => get("/owner/centers", query),

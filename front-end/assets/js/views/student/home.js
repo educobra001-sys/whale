@@ -1,3 +1,4 @@
+import { sectionOn } from "../../core/sections.js";
 import { DAYS } from "../../core/config.js";
 import { icon } from "../../core/icons.js";
 import { badge, date, emptyState, fullName, gradeLabel, homeworkBadge, html, money, mount, qrDataUrl, statTile, whatsappLink } from "../../core/ui.js";
@@ -27,7 +28,13 @@ export default async function studentHome(ctx) {
     return;
   }
 
-  const [data, platformAds] = await Promise.all([api.student.overview(ctx.teacherId), api.me.platformAds().catch(() => [])]);
+  const [data, platformAds] = await Promise.all([api.student.overview(ctx.teacherId), sectionOn("announcements") ? api.me.platformAds().catch(() => []) : []]);
+  const links = [
+    { key: "lessons", href: "#/lessons", icon: "play", label: "Lessons" },
+    { key: "homework", href: "#/homework", icon: "pencil", label: "Homework" },
+    { key: "exams", href: "#/exams", icon: "award", label: "Exams" },
+    { key: "booklets", href: "#/booklets", icon: "book", label: "Booklets" },
+  ].filter((link) => sectionOn(link.key));
   const teacher = data.teacher;
   const lowBalance = data.balance < (data.pricePerSession || 0);
 
@@ -41,7 +48,7 @@ export default async function studentHome(ctx) {
       ${statTile("Points", data.points, { icon: icon("trophy", 15), hint: data.rank ? `Rank ${data.rank} of ${data.classSize}` : "" })}
       ${statTile("Attendance", `${data.stats.attendanceRate}%`, { icon: icon("calendar", 15), hint: `${data.stats.present} sessions attended` })}
       ${statTile("Homework done", `${data.stats.homeworkRate}%`, { icon: icon("pencil", 15) })}
-      ${statTile("Exam average", `${data.stats.examAvg}%`, { icon: icon("award", 15) })}
+      ${sectionOn("exams") ? statTile("Exam average", `${data.stats.examAvg}%`, { icon: icon("award", 15) }) : ""}
     </section>
     <div class="grid grid-main">
       <div class="stack">
@@ -55,19 +62,14 @@ export default async function studentHome(ctx) {
                 <p class="muted small">${date(data.lastSession.session.date)} · ${statusBadge(data.lastSession.status)} ${data.lastSession.status === "present" ? homeworkBadge(data.lastSession.homeworkStatus) : ""}</p></div>`
             : ""}
         </section>
-        <section><h2 class="eyebrow" style="font-size:12px">From ${fullName(teacher)}</h2>
+        ${sectionOn("announcements") ? html`<section><h2 class="eyebrow" style="font-size:12px">From ${fullName(teacher)}</h2>
           ${data.announcements.length ? html`<div class="tile-grid">${data.announcements.map((item) => announcementCard(item))}</div>` : html`<div class="card">${emptyState("No announcements")}</div>`}
           ${platformAds.length ? html`<p class="eyebrow mt">From other teachers on EduCobra</p><div class="tile-grid">${platformAds.map((item) => announcementCard(item))}</div>` : ""}
-        </section>
+        </section>` : ""}
       </div>
       <div class="stack">
-        <section class="card"><div class="card-head"><h3>Quick links</h3></div>
-          <div class="grid grid-2">
-            <a class="btn btn-secondary" href="#/lessons">${icon("play", 16)} Lessons</a>
-            <a class="btn btn-secondary" href="#/homework">${icon("pencil", 16)} Homework</a>
-            <a class="btn btn-secondary" href="#/exams">${icon("award", 16)} Exams</a>
-            <a class="btn btn-secondary" href="#/booklets">${icon("book", 16)} Booklets</a>
-          </div></section>
+        ${links.length ? html`<section class="card"><div class="card-head"><h3>Quick links</h3></div>
+          <div class="grid grid-2">${links.map((link) => html`<a class="btn btn-secondary" href="${link.href}">${icon(link.icon, 16)} ${link.label}</a>`)}</div></section>` : ""}
         ${data.followUp
           ? html`<section class="card"><div class="card-head"><h3>Your follow-up assistant</h3></div>
               <p class="strong">${data.followUp.name}</p>

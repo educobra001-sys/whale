@@ -1,3 +1,4 @@
+import { sectionOn } from "../../core/sections.js";
 import { icon } from "../../core/icons.js";
 import { barChart, emptyState, fullName, html, money, mount, pageHeader, relative, statTile, badge } from "../../core/ui.js";
 import { balanceText, studentCell } from "../shared/common.js";
@@ -13,7 +14,7 @@ export default async function dashboard({ root, api, me, can, role }) {
   const tasks = [
     counts.pendingRequests && can("students_manage") ? { href: "#/students?tab=requests", text: `${counts.pendingRequests} student${counts.pendingRequests === 1 ? "" : "s"} asked to join`, icon: "users" } : null,
     counts.pendingTopups && can("wallet") ? { href: "#/wallet?tab=topups", text: `${counts.pendingTopups} transfer receipt${counts.pendingTopups === 1 ? "" : "s"} to review`, icon: "wallet" } : null,
-    counts.pendingSubmissions && can("homework_online") ? { href: "#/homework", text: `${counts.pendingSubmissions} homework submission${counts.pendingSubmissions === 1 ? "" : "s"} to correct`, icon: "pencil" } : null,
+    counts.pendingSubmissions && can("homework_online") && sectionOn("homework") ? { href: "#/homework", text: `${counts.pendingSubmissions} homework submission${counts.pendingSubmissions === 1 ? "" : "s"} to correct`, icon: "pencil" } : null,
     counts.lowBalance ? { href: "#/students?filter=low", text: `${counts.lowBalance} student${counts.lowBalance === 1 ? "" : "s"} can't cover the next session`, icon: "wallet" } : null,
   ].filter(Boolean);
 

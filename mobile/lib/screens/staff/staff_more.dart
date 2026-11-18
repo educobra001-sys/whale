@@ -1,3 +1,4 @@
+import 'staff_messages.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/account.dart';
@@ -16,6 +17,7 @@ class StaffMore extends StatelessWidget {
     final a = account;
     void open(String title, Widget body) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: Text(title)), body: body)));
     final items = <(IconData, String, VoidCallback)>[
+      if (a.can('messages')) (Icons.forum_outlined, 'Messages', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StaffMessages()))),
       if (a.has('lessons') && a.can('lessons')) (Icons.ondemand_video, 'Video lessons', () => open('Video lessons', const StaffLessons())),
       if (a.has('exams') && a.can('exams')) (Icons.workspace_premium_outlined, 'Exams & scores', () => open('Exams', const StaffExams())),
       if (a.has('homework') && a.can('homework_online')) (Icons.edit_note, 'Online homework', () => open('Online homework', const StaffHomework())),
@@ -28,7 +30,7 @@ class StaffMore extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 10),
           child: Card(child: ListTile(leading: Icon(icon, color: AppColors.accentText), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)), trailing: const Icon(Icons.chevron_right), onTap: onTap)),
         ),
-      const Text('Finance, booklets, messages, assistants and other settings are on the website.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+      const Text('Finance, assistants and other settings are on the website.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
     ]);
   }
 }

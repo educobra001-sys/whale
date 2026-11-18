@@ -3,6 +3,7 @@ import { Actor, getActor } from "../common/service/actorService"
 import { ForbiddenError, UnauthorizedError } from "../common/exceptions/error.exceptions"
 import { roleEnum } from "../common/enum/user.enum"
 import { runAsPlatform, runWithTeacher } from "../common/service/tenantContext"
+import { hiddenSections } from "../common/service/sections"
 import { TokenService } from "../common/service/token"
 
 const tokenService = new TokenService()
@@ -88,8 +89,10 @@ export const teacherOnly = (req: userRequest, res: Response, next: NextFunction)
 }
 
 // The owner decides which sections each teacher bought. Anything else is closed, for the whole team.
-export const requireFeature = (...keys: string[]) => (req: userRequest, res: Response, next: NextFunction) => {
+export const requireFeature = (...keys: string[]) => async (req: userRequest, res: Response, next: NextFunction) => {
     const owned = req.actor?.features ?? []
-    if (keys.some((key) => owned.includes(key))) return next()
+    // Sections the owner hasn't published yet are closed for everyone.
+    const hidden = await hiddenSections()
+    if (keys.some((key) => owned.includes(key) && !hidden.includes(key))) return next()
     throw new ForbiddenError("This section isn't included in your plan.", { code: "FEATURE_LOCKED", feature: keys[0] })
 }

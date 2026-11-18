@@ -13,6 +13,8 @@ import { handleTelegramLinks, removeTelegramLink } from "./owner.telegram"
 import { removeTelegram, setupTelegram, telegramStatus } from "../message/telegram.service"
 import { linkWhatsapp, PLATFORM, unlinkWhatsapp, whatsappState } from "../message/whatsappWeb.service"
 import ownerService from "./owner.service"
+import { hiddenSections, setHiddenSections } from "../../common/service/sections"
+import { ALL_FEATURE_KEYS } from "../../common/enum/feature.enum"
 import * as schema from "./owner.validation"
 
 const router: Router = Router()
@@ -93,6 +95,14 @@ router.get("/telegram/links", send((req) => handleTelegramLinks(req.query)))
 router.delete("/telegram/links/:id", send((req) => removeTelegramLink(id(req)), "Link removed"))
 
 router.get("/audit", send(() => ownerService.audits()))
+
+// Sections hidden from everyone until the owner publishes them.
+router.get("/sections", send(async () => ({ hidden: await hiddenSections() })))
+router.put("/sections", validation(z.object({ hidden: z.array(z.enum(ALL_FEATURE_KEYS as [string, ...string[]])).max(50) })), send(async (req) => {
+    const hidden = await setHiddenSections(req.body.hidden)
+    await ownerService.audit(req.actor, "sections.hidden", "settings", { hidden })
+    return { hidden }
+}, "Sections saved"))
 
 // Messages for one teacher's students, written by the owner (same screens and rules as the teacher's own page).
 const ownerMessages: Router = Router({ mergeParams: true })

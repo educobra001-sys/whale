@@ -1,3 +1,4 @@
+import 'sections.dart';
 import 'api.dart';
 import 'session.dart';
 
@@ -24,10 +25,12 @@ class Account {
   bool canAny(List<String> list) => list.any(can);
 
   /// Sections the owner sold to this teacher. Center, school, student and parent accounts aren't gated.
-  bool has(String feature) => !role.isStaff || features.contains(feature);
+  /// Sections the owner hasn't published yet are off for everyone.
+  bool has(String feature) => Sections.on(feature) && (!role.isStaff || features.contains(feature));
 
   static Future<Account> load() async {
     final role = Session.role!;
+    await Sections.load();
     Account account;
     switch (role) {
       case Role.teacher:
