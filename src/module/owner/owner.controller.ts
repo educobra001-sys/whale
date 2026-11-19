@@ -10,7 +10,7 @@ import { BadRequestError, NotFoundError } from "../../common/exceptions/error.ex
 import { repos } from "../../db/repository"
 import { actAsTeacher, messageRoutes } from "../message/message.controller"
 import { handleTelegramLinks, removeTelegramLink } from "./owner.telegram"
-import { removeTelegram, setupTelegram, telegramStatus } from "../message/telegram.service"
+import { removeTelegram, repairTelegram, setupTelegram, telegramStatus } from "../message/telegram.service"
 import { linkWhatsapp, PLATFORM, unlinkWhatsapp, whatsappState } from "../message/whatsappWeb.service"
 import ownerService from "./owner.service"
 import { hiddenSections, setHiddenSections } from "../../common/service/sections"
@@ -91,6 +91,15 @@ router.delete("/telegram", send(async (req) => {
     await ownerService.audit(req.actor, "telegram.remove", "settings", {})
     return removeTelegram()
 }, "Telegram bot removed"))
+router.post("/telegram/repair", send(async (req) => {
+    try {
+        const status = await repairTelegram()
+        await ownerService.audit(req.actor, "telegram.repair", "settings", { username: status.username })
+        return status
+    } catch (error: any) {
+        throw new BadRequestError(error.message)
+    }
+}, "Telegram bot repaired"))
 router.get("/telegram/links", send((req) => handleTelegramLinks(req.query)))
 router.delete("/telegram/links/:id", send((req) => removeTelegramLink(id(req)), "Link removed"))
 

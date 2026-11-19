@@ -21,7 +21,7 @@ import ParentRouter from "./module/parent/parent.controller"
 import StudentRouter from "./module/student/student.controller"
 import TeacherRouter from "./module/teacher/teacher.router"
 import WhatsappWebhookRouter from "./module/message/whatsappWebhook.controller"
-import { handleTelegramUpdate, telegramSecretMatches } from "./module/message/telegram.service"
+import { handleTelegramUpdate, keepTelegramHealthy, telegramSecretMatches } from "./module/message/telegram.service"
 import { drainWhatsapp, internalKey, keepWhatsappAlive, kickStuckWhatsapp } from "./module/message/whatsappWeb.service"
 import crypto from "node:crypto"
 import { seedFeatures } from "./module/owner/plan.service"
@@ -91,7 +91,8 @@ export const createApp = (): Express => {
         try {
             const restarted = await kickStuckWhatsapp()
             const refreshed = await keepWhatsappAlive()
-            successResponce({ res, message: "done", data: { restarted, refreshed } })
+            const telegramRepaired = await keepTelegramHealthy().catch(() => false)
+            successResponce({ res, message: "done", data: { restarted, refreshed, telegramRepaired } })
         } catch (error) {
             next(error)
         }

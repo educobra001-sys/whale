@@ -326,6 +326,9 @@ test("telegram: sharing a phone number links the chat to the matching students",
     assert.ok(listed.data.some((row: any) => row.student?._id === child.id))
     assert.equal((await call("PUT", "/owner/telegram", owner, { token: "not-a-token" })).status, 400)
     assert.equal((await call("GET", "/owner/telegram", owner)).data.configured, false)
+    const repair = await call("POST", "/owner/telegram/repair", owner)
+    assert.equal(repair.status, 400)
+    assert.match(repair.message, /Paste the bot token/)
 })
 
 test("teachers can link, but linking opens no data", async () => {

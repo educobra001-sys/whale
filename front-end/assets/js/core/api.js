@@ -321,6 +321,7 @@ export const api = {
     telegram: () => get("/owner/telegram"),
     setTelegram: (token) => put("/owner/telegram", { token }),
     removeTelegram: () => del("/owner/telegram"),
+    repairTelegram: () => post("/owner/telegram/repair"),
     telegramLinks: (query) => get("/owner/telegram/links", query),
     removeTelegramLink: (linkId) => del(`/owner/telegram/links/${id(linkId)}`),
     // The messages screen for one teacher's students, as the owner.

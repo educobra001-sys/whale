@@ -29,12 +29,18 @@ export default async function ownerMessaging(ctx) {
           <button class="btn btn-primary btn-sm" type="submit">Connect bot</button>
         </form>`;
     }
-    return html`<div class="card-head"><h3>Telegram bot</h3>${badge(bot.mode === "webhook" ? "Active" : "Active (polling)", "success")}</div>
+    const live = bot.live;
+    const healthy = !live || live.ok;
+    return html`<div class="card-head"><h3>Telegram bot</h3>${healthy ? badge(bot.mode === "webhook" ? "Active" : "Active (polling)", "success") : badge("Needs repair", "danger")}</div>
       <p class="strong">${bot.botName || "Bot"} · <a href="${bot.link}" target="_blank" rel="noopener">@${bot.username}</a></p>
       <p class="muted small mb">${bot.linkedChats} chat${bot.linkedChats === 1 ? "" : "s"} linked. Anyone who opens the bot is asked to share their phone number; it's matched with the student and parent numbers you have.</p>
       ${bot.mode === "polling" ? html`<p class="small notice mb">This server has no https address, so the background worker checks Telegram for new chats. On Vercel this switches to a webhook by itself.</p>` : ""}
       ${bot.fromEnvironment ? html`<p class="small notice mb">This token comes from TELEGRAM_BOT_TOKEN. Paste it below once to manage it from here and turn on the share-number button.</p>` : ""}
       ${bot.error ? html`<p class="text-danger small mb">${bot.error}</p>` : ""}
+      ${!healthy ? html`<div class="notice notice-danger mb">Telegram isn't sending this bot's messages to the server${live.url ? ` (the webhook points to ${live.url})` : " (no webhook)"}. Press <strong>Repair bot</strong>.</div>` : ""}
+      ${live && live.lastError ? html`<p class="small muted mb">Last delivery problem reported by Telegram: ${live.lastError}${live.pending ? ` · ${live.pending} waiting` : ""}</p>` : ""}
+      <div class="row mb"><button class="btn ${healthy ? "btn-secondary" : "btn-primary"} btn-sm" type="button" data-action="repair-telegram">Repair bot</button>
+        <span class="muted small">Sets the webhook, the /start command and the bot's description again.</span></div>
       <form id="telegram-form" class="stack">
         ${fieldHtml({ name: "token", label: bot.fromEnvironment ? "Bot token" : "Replace the token", type: "password", required: true, placeholder: "123456789:AA…", autocomplete: "off" })}
         <div class="row"><button class="btn btn-secondary btn-sm" type="submit">${bot.fromEnvironment ? "Connect bot" : "Save and reconnect"}</button>
@@ -107,6 +113,10 @@ export default async function ownerMessaging(ctx) {
       event.preventDefault();
       const token = new FormData(form).get("token");
       if (await withBusy(form.querySelector("button[type=submit]"), () => api.owner.setTelegram(String(token || "").trim()), "Telegram bot connected.")) renderTelegram();
+    }),
+    on(root, "click", "[data-action=repair-telegram]", async (event, button) => {
+      if (await withBusy(button, () => api.owner.repairTelegram(), "Bot repaired.")) renderTelegram();
+      else renderTelegram();
     }),
     on(root, "click", "[data-action=remove-telegram]", async (event, button) => {
       if (!(await confirmDialog("Remove the Telegram bot? Linked chats are kept, but nothing is sent by Telegram until a bot is connected again.", { danger: true, confirmLabel: "Remove" }))) return;

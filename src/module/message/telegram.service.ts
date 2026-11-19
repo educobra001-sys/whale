@@ -37,10 +37,32 @@ export const sendTelegram = async (chatId: string, text: string, extra: Record<s
 
 // ---------- owner setup ----------
 
+// What Telegram itself says right now: is the webhook ours, and is it delivering?
+const liveCheck = async (config: Awaited<ReturnType<typeof telegramConfig>>) => {
+    if (!config.token) return null
+    try {
+        const info = await call(config.token, "getWebhookInfo")
+        const url = String(info.url ?? "")
+        const expected = config.mode === "webhook" ? config.webhookUrl : ""
+        return {
+            ok: url === expected,
+            url,
+            pending: Number(info.pending_update_count ?? 0),
+            lastError: info.last_error_message ? `${info.last_error_message} (${new Date(Number(info.last_error_date) * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC)` : "",
+        }
+    } catch (error: any) {
+        return { ok: false, url: "", pending: 0, lastError: error.message }
+    }
+}
+
 export const telegramStatus = async () => {
     const config = await telegramConfig()
-    const linkedChats = config.token ? (await runAsPlatform(() => repos.telegramLink.distinct("chatId"))).length : 0
+    const [linkedChats, live] = await Promise.all([
+        config.token ? runAsPlatform(() => repos.telegramLink.distinct("chatId")).then((rows) => rows.length) : Promise.resolve(0),
+        liveCheck(config),
+    ])
     return {
+        live,
         configured: Boolean(config.token),
         fromEnvironment: Boolean(!(await getMessagingSettings()).telegram.token && env.telegramToken),
         username: config.username,
@@ -53,9 +75,9 @@ export const telegramStatus = async () => {
     }
 }
 
-export const setupTelegram = async (token: string) => {
-    const me = await call(token, "getMe")
-    const webhookSecret = crypto.randomBytes(24).toString("hex")
+// Everything the bot needs on Telegram's side, set again from scratch: webhook, command, descriptions.
+// Safe to run any time, so "Repair bot" (or the daily check) fixes a bot whose setup was changed in BotFather.
+const configureBot = async (token: string, webhookSecret: string) => {
     const base = selfUrl()
     let mode: "webhook" | "polling" = "polling"
     let webhookUrl = ""
@@ -67,7 +89,48 @@ export const setupTelegram = async (token: string) => {
         // Polling and a webhook can't both be active.
         await call(token, "deleteWebhook")
     }
-    await call(token, "setMyCommands", { commands: [{ command: "start", description: "Link this chat with your phone number" }] }).catch(() => undefined)
+    const optional = (method: string, body: Record<string, unknown>) => call(token, method, body).catch(() => undefined)
+    await optional("setMyCommands", { commands: [{ command: "start", description: "Link this chat with your phone number" }] })
+    await optional("setMyDescription", {
+        description: `${env.appName} sends students' attendance, absence and news from their teachers here.\n\nPress Start, then "Share my phone number". If it's a student's or a parent's number registered with a teacher, this chat is linked.`,
+    })
+    await optional("setMyShortDescription", { short_description: `Attendance and messages from ${env.appName} teachers. Share your phone number to link.` })
+    return { mode, webhookUrl }
+}
+
+export const repairTelegram = async () => {
+    const config = await telegramConfig()
+    if (!config.token) throw new Error("No Telegram bot is set up. Paste the bot token first.")
+    try {
+        const me = await call(config.token, "getMe")
+        const webhookSecret = config.webhookSecret || crypto.randomBytes(24).toString("hex")
+        const { mode, webhookUrl } = await configureBot(config.token, webhookSecret)
+        await saveMessagingSettings({ telegram: { ...config, username: me.username ?? config.username, botName: me.first_name ?? config.botName, webhookSecret, mode, webhookUrl, error: "" } })
+    } catch (error: any) {
+        // 401 = the token no longer works (bot deleted, or a new token generated in BotFather).
+        const message = /401|unauthorized/i.test(error.message)
+            ? "Telegram refuses this token: the bot was deleted or its token was changed in BotFather. Paste the current token."
+            : error.message
+        await saveMessagingSettings({ telegram: { ...config, error: message } })
+        throw new Error(message)
+    }
+    return telegramStatus()
+}
+
+// Daily: put the webhook back if someone changed it in BotFather or another tool.
+export const keepTelegramHealthy = async () => {
+    const config = await telegramConfig()
+    if (!config.token || config.mode !== "webhook") return false
+    const live = await liveCheck(config)
+    if (live?.ok) return false
+    await repairTelegram().catch(() => undefined)
+    return true
+}
+
+export const setupTelegram = async (token: string) => {
+    const me = await call(token, "getMe")
+    const webhookSecret = crypto.randomBytes(24).toString("hex")
+    const { mode, webhookUrl } = await configureBot(token, webhookSecret)
     await saveMessagingSettings({ telegram: { token, username: me.username ?? "", botName: me.first_name ?? "", webhookSecret, mode, webhookUrl, error: "" } })
     return telegramStatus()
 }
