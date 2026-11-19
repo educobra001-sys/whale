@@ -33,6 +33,13 @@ export const updateAttendanceSchema = z.object({
     homeworkStatus: homeworkStatus.nullable().optional(),
 })
 
+export const addPaymentSchema = z.object({
+    identifier: z.string().trim().min(1).max(80),
+    amount: money,
+    reason: text(200).optional(),
+    opId: z.string().trim().max(80).optional(),
+})
+
 export const homeworkCheckSchema = z.object({ identifier: z.string().trim().min(1).max(80), status: homeworkStatus })
 
 export const closingSchema = z.object({

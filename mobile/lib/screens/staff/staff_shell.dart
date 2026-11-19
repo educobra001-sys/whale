@@ -47,6 +47,8 @@ class _StaffShellState extends State<StaffShell> {
   void initState() {
     super.initState();
     Outbox.flush();
+    // The class is saved on the phone as soon as a scanner signs in, so scanning works offline right away.
+    if (widget.account.canAny(['scan_attendance', 'scan_homework', 'door_check'])) Outbox.refreshSnapshot();
   }
 
   @override
@@ -82,7 +84,7 @@ class OutboxButton extends StatelessWidget {
         final problems = items.where((item) => item.error != null).length;
         if (items.isEmpty && online) return const SizedBox.shrink();
         return IconButton(
-          tooltip: 'Offline check-ins',
+          tooltip: 'Offline work',
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OutboxScreen())),
           icon: Badge(
             isLabelVisible: items.isNotEmpty,
@@ -113,37 +115,90 @@ class OutboxScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Offline check-ins')),
+      appBar: AppBar(title: const Text('Offline work')),
       body: ValueListenableBuilder(
         valueListenable: Outbox.items,
-        builder: (context, items, _) => ListView(padding: const EdgeInsets.all(16), children: [
-          const Text('Check-ins made with no connection. They are sent automatically when the connection returns, recorded at the time they were scanned.', style: TextStyle(color: AppColors.muted)),
-          const Gap(),
-          FilledButton.icon(
-            onPressed: () async {
-              final sent = await Outbox.flush();
-              if (context.mounted) toast(context, sent > 0 ? '$sent check-in(s) sent.' : (Connection.online.value ? 'Nothing more to send.' : 'Still no connection.'));
-            },
-            icon: const Icon(Icons.sync),
-            label: const Text('Send now'),
-          ),
-          const Gap(),
-          if (items.isEmpty) const EmptyState(icon: Icons.cloud_done_outlined, title: 'Everything is sent'),
-          for (final item in items)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              color: item.error != null ? AppColors.dangerSoft : null,
-              child: ListTile(
-                title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(item.error ?? 'Waiting · ${dateTime(item.at.toIso8601String())}${(item.body['payment'] ?? 0) > 0 ? ' · paid ${money(item.body['payment'])}' : ''}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () async {
-                    if (await confirm(context, 'Remove this check-in? It will not be recorded.', ok: 'Remove', danger: true)) await Outbox.remove(item.id);
-                  },
-                ),
+        builder: (context, items, _) {
+          final problems = items.where((item) => item.error != null).toList();
+          final waiting = items.where((item) => item.error == null).toList();
+          return ListView(padding: const EdgeInsets.all(16), children: [
+            const Text('Check-ins, homework and cash recorded with no connection. They are sent automatically, in order, when the connection returns, at the time they were scanned.',
+                style: TextStyle(color: AppColors.muted)),
+            const Gap(),
+            ValueListenableBuilder(
+              valueListenable: Outbox.syncing,
+              builder: (context, syncing, _) => FilledButton.icon(
+                onPressed: syncing
+                    ? null
+                    : () async {
+                        final sent = await Outbox.flush();
+                        if (context.mounted) toast(context, sent > 0 ? '$sent sent.' : (Connection.online.value ? 'Nothing more to send.' : 'Still no connection.'));
+                      },
+                icon: syncing ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
+                label: Text(syncing ? 'Sending…' : 'Send now'),
               ),
             ),
+            const Gap(8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final ok = await Outbox.refreshSnapshot();
+                if (context.mounted) toast(context, ok ? 'Offline copy of the class updated.' : 'No connection — the copy stays as it was.', error: !ok);
+              },
+              icon: const Icon(Icons.download_outlined),
+              label: ValueListenableBuilder(
+                valueListenable: Outbox.snap,
+                builder: (context, snap, _) => Text(snap?.at == null ? 'Download the class for offline use' : 'Update offline copy (${dateTime(snap!.at!.toIso8601String())})'),
+              ),
+            ),
+            const Gap(),
+            if (items.isEmpty) const EmptyState(icon: Icons.cloud_done_outlined, title: 'Everything is sent'),
+            if (problems.isNotEmpty) ...[
+              Text('Refused by the server (${problems.length})', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.danger)),
+              const Text('Fix the cause (for example start the session or top up), then retry. Or remove it.', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+              const Gap(6),
+              for (final item in problems) _OpTile(item: item),
+              const Gap(),
+            ],
+            if (waiting.isNotEmpty) ...[
+              Text('Waiting to send (${waiting.length})', style: const TextStyle(fontWeight: FontWeight.w800)),
+              const Gap(6),
+              for (final item in waiting) _OpTile(item: item),
+            ],
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class _OpTile extends StatelessWidget {
+  const _OpTile({required this.item});
+  final QueuedOp item;
+  @override
+  Widget build(BuildContext context) {
+    final paid = item.kind == 'payment' ? item.body['amount'] : item.body['payment'];
+    final details = [
+      dateTime(item.at.toIso8601String()),
+      if (item.kind == 'homework') homeworkLabel(item.body['status']),
+      if ((num.tryParse('${paid ?? 0}') ?? 0) > 0) money(paid),
+    ].join(' · ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: item.error != null ? AppColors.dangerSoft : null,
+      child: ListTile(
+        leading: Icon(switch (item.kind) { 'homework' => Icons.edit_note, 'payment' => Icons.payments_outlined, _ => Icons.how_to_reg_outlined }),
+        title: Text(item.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(item.error == null ? details : '${item.error}\n$details'),
+        isThreeLine: item.error != null,
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (item.error != null) IconButton(tooltip: 'Retry', icon: const Icon(Icons.replay), onPressed: () => Outbox.retry(item.id)),
+          IconButton(
+            tooltip: 'Remove',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () async {
+              if (await confirm(context, 'Remove "${item.label}"? It will not be recorded.', ok: 'Remove', danger: true)) await Outbox.remove(item.id);
+            },
+          ),
         ]),
       ),
     );

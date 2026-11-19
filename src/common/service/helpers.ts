@@ -13,6 +13,17 @@ export const normalizePhone = (phone: unknown) => {
     return digits.startsWith("20") && digits.length === 12 ? `0${digits.slice(2)}` : digits
 }
 
+// Student codes as people type them: "123", "stu123", "STU 123", Arabic digits -> "STU-000123".
+export const normalizeStudentCode = (input: unknown) => {
+    const text = String(input ?? "")
+        .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+        .trim()
+        .toUpperCase()
+    const match = text.match(/^(?:STU)?[\s-]*0*(\d{1,9})$/)
+    return match ? `STU-${match[1]!.padStart(6, "0")}` : text
+}
+
 export type PhoneCheck = { ok: boolean; international: string; reason: string }
 
 // Whether a number can receive WhatsApp, and its international form ("201012345678").

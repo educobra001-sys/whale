@@ -25,6 +25,51 @@ test("check-in charges the session price and writes the transactions", async () 
     assert.equal(await balanceOf(t.token, student.id), 20)
 })
 
+test("scanning: the number alone, phone search, history, add money once, offline snapshot", async () => {
+    const student = await makeStudent(t.token, { firstName: "Yassin", balance: 200, pricePerSession: 50 })
+    const number = String(Number(student.userID.replace(/\D/g, "")))
+    const session = await startSession(t.token)
+    // Just the number (and Arabic digits) find the student, like the full code.
+    const arabic = number.replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)))
+    assert.equal((await call("GET", `/teacher/scan/lookup?identifier=${encodeURIComponent(arabic)}`, t.token)).data.student.userID, student.userID)
+    const checkin = await call("POST", `/teacher/sessions/${session}/attendance`, t.token, { identifier: number, payment: 0 })
+    assert.equal(checkin.status, 201, checkin.message)
+    assert.equal(checkin.data.balance, 150)
+
+    const byPhone = await call("GET", `/teacher/scan/search?q=${student.phone.slice(-5)}`, t.token)
+    assert.equal(byPhone.status, 200, byPhone.message)
+    assert.ok(byPhone.data.students.some((row: any) => row.code === student.userID && row.present === true))
+    assert.equal((await call("GET", `/teacher/scan/search?q=${number}`, t.token)).data.exactCode, student.userID)
+    assert.ok((await call("GET", "/teacher/scan/search?q=Yass", t.token)).data.students.some((row: any) => row.code === student.userID))
+
+    // Previous sessions show on the next scan, with homework.
+    await call("POST", `/teacher/sessions/${session}/homework`, t.token, { identifier: student.userID, status: "complete" })
+    const next = await startSession(t.token)
+    const lookup = await call("GET", `/teacher/scan/lookup?identifier=${student.userID}`, t.token)
+    assert.equal(lookup.data.centerMatch, true)
+    const previous = lookup.data.lastSessions.find((row: any) => row.session._id === session)
+    assert.equal(previous.status, "present")
+    assert.equal(previous.homeworkStatus, "complete")
+    assert.ok(!lookup.data.lastSessions.some((row: any) => row.session._id === next))
+
+    // Already present: add money, and the same offline operation sent twice counts once.
+    const pay = { identifier: student.userID, amount: 30, reason: "late fee", opId: "op-test-1" }
+    const added = await call("POST", `/teacher/sessions/${session}/attendance/add-payment`, t.token, pay)
+    assert.equal(added.status, 200, added.message)
+    assert.equal(added.data.balance, 180)
+    const replay = await call("POST", `/teacher/sessions/${session}/attendance/add-payment`, t.token, pay)
+    assert.equal(replay.data.duplicate, true)
+    assert.equal(await balanceOf(t.token, student.id), 180)
+    const stranger = await makeStudent(t.token)
+    assert.equal((await call("POST", `/teacher/sessions/${next}/attendance/add-payment`, t.token, { identifier: stranger.userID, amount: 10 })).status, 404)
+
+    const snap = await call("GET", "/teacher/scan/snapshot", t.token)
+    assert.equal(snap.status, 200, snap.message)
+    assert.ok(snap.data.students.some((row: any) => row.userID === student.userID && row.balance === 180))
+    assert.ok(snap.data.sessions.some((row: any) => row._id === next && row.active === true))
+    assert.ok(snap.data.attendance.some((row: any) => row[0] === student.id && row[1] === session && row[2] === "complete"))
+})
+
 test("insufficient balance is refused unless forced, blocked students too", async () => {
     const student = await makeStudent(t.token, { balance: 10, pricePerSession: 80 })
     const session = await startSession(t.token)

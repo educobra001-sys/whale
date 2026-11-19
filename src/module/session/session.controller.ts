@@ -28,6 +28,10 @@ router.put("/sessions/:id/closing", manage, validation(schema.closingSchema), se
 router.post("/sessions/:id/staff", manage, validation(schema.staffCreateSchema), send((req) => sessionService.staffCheckIn(id(req), req.body), "Checked in", 201))
 router.patch("/sessions/:id/staff/:entryId", manage, validation(schema.staffUpdateSchema), send((req) => sessionService.staffUpdate(id(req), id(req, "entryId"), req.body)))
 router.delete("/sessions/:id/staff/:entryId", manage, send((req) => sessionService.staffRemove(id(req), id(req, "entryId"))))
+const scanAny = can("scan_attendance", "scan_homework", "door_check")
+router.get("/scan/search", scanAny, send((req) => sessionService.search(String(req.query.q ?? ""))))
+router.get("/scan/snapshot", scanAny, send(() => sessionService.snapshot()))
+router.post("/sessions/:id/attendance/add-payment", scan, validation(schema.addPaymentSchema), send((req) => sessionService.addPayment(id(req), req.body, req.actor.id), "Payment added"))
 router.get("/scan/lookup", can("scan_attendance", "scan_homework", "door_check"), send((req) => sessionService.lookup(String(req.query.identifier ?? ""))))
 
 export default router

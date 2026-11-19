@@ -84,9 +84,12 @@ const transactionSchema = new Schema({
     reason: String,
     by: Schema.Types.Mixed,
     session: { type: Types.ObjectId, ref: "Session" },
+    // Set by phones replaying work done offline, so a payment sent twice is only counted once.
+    opId: String,
     createdAt: { type: Date, default: Date.now },
 })
 transactionSchema.index({ teacher: 1, createdAt: -1 })
+transactionSchema.index({ teacher: 1, opId: 1 }, { unique: true, partialFilterExpression: { opId: { $type: "string" } } })
 transactionSchema.index({ teacher: 1, student: 1, createdAt: -1 })
 export const transactionModel = tenantModel("Transaction", transactionSchema)
 
